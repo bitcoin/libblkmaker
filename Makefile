@@ -2,7 +2,9 @@ LIBNAME := blkmaker
 
 CFLAGS := -ggdb -O0 -Wall -Werror
 
-all: lib$(LIBNAME).so lib$(LIBNAME)_jansson.so
+all: example
+
+lib: lib$(LIBNAME).so lib$(LIBNAME)_jansson.so
 
 example: example.o lib$(LIBNAME).so lib$(LIBNAME)_jansson.so
 	$(CC) $(LDFLAGS) -o $@ $^ -ljansson -lgcrypt -Wl,-rpath,.
