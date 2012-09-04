@@ -1,0 +1,16 @@
+Dependencies:
+	Jansson 2.0 with 'long long' support
+
+Example dependencies:
+	Jansson 2.1 (to read JSON from stdin)
+	libgcrypt (for SHA256)
+
+For usage, check out example.c
+Note that you must assign blkmk_sha256_impl to a function pointer:
+	bool mysha256(void *hash_out, const void *data, size_t datasz)
+hash_out must be able to overlap with data!
+
+Also note that you should NOT roll ntime for data retrieved; while it will
+probably work, there is no guarantee it won't fall outside the maxtime limits
+for the blocktemplate. It is usually best to simply get more data as often
+as it is needed.
