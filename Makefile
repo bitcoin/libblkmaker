@@ -11,7 +11,7 @@ example: example.o lib$(LIBNAME).so lib$(LIBNAME)_jansson.so
 
 lib$(LIBNAME).so: blkmaker.o blktemplate.o
 
-lib$(LIBNAME)_jansson.so: blkmaker_jansson.o
+lib$(LIBNAME)_jansson.so: blkmaker_jansson.o lib$(LIBNAME).so
 
 %.so:
 	$(CC) -shared $(LDFLAGS) -o $@ $^
