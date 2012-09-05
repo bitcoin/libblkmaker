@@ -235,6 +235,18 @@ char varintEncode(unsigned char *out, uint64_t n) {
 	return L;
 }
 
+static
+void my_bin2hex(char *out, const void *data, size_t datasz) {
+	const unsigned char *datac = data;
+	static char hex[] = "0123456789abcdef";
+	out[datasz * 2] = '\0';
+	for (size_t i = 0; i < datasz; ++i)
+	{
+		out[ i*2   ] = hex[datac[i] >> 4];
+		out[(i*2)+1] = hex[datac[i] & 15];
+	}
+}
+
 json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, blknonce_t nonce) {
 	unsigned char blk[80 + 8 + 1000000];
 	memcpy(blk, data, 76);
@@ -251,13 +263,7 @@ json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, blk
 	}
 	
 	char blkhex[(offs * 2) + 1];
-	blkhex[offs * 2] = '\0';
-	static char hex[] = "0123456789abcdef";
-	for (size_t i = 0; i < offs; ++i)
-	{
-		blkhex[ i*2   ] = hex[blk[i] >> 4];
-		blkhex[(i*2)+1] = hex[blk[i] & 15];
-	}
+	my_bin2hex(blkhex, blk, offs);
 	
 	json_t *rv = json_array(), *ja, *jb;
 	jb = NULL;
