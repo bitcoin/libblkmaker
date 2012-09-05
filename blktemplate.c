@@ -59,7 +59,7 @@ gbt_capabilities_t blktmpl_addcaps(const blktemplate_t *tmpl) {
 	// For now, it's a simple "filled" vs "not filled"
 	if (tmpl->version)
 		return 0;
-	return GBT_CBTXN | GBT_WORKID | BMM_CBAPPEND | BMM_CBSET | BMM_TIMEINC | BMM_TIMEDEC;
+	return GBT_CBTXN | GBT_WORKID | BMM_TIMEINC;
 }
 
 static
