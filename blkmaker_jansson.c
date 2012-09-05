@@ -37,14 +37,17 @@ json_t *blktmpl_request_jansson(gbt_capabilities_t caps) {
 		goto err;
 	if (json_object_set_new(req, "capabilities", jcaps))
 		goto err;
+	jcaps = NULL;
 	if (json_object_set_new(reqf, "id", jstr))
 		goto err;
 	if (!(jstr = json_string("getblocktemplate")))
 		goto err;
 	if (json_object_set_new(reqf, "method", jstr))
 		goto err;
+	jstr = NULL;
 	if (json_array_append_new(reqa, req))
 		goto err;
+	req = NULL;
 	if (json_object_set_new(reqf, "params", reqa))
 		goto err;
 	
