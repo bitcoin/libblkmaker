@@ -7,6 +7,7 @@
 
 #include <jansson.h>
 
+#include <blkmaker.h>
 #include <blktemplate.h>
 
 #ifndef JSON_INTEGER_IS_LONG_LONG
@@ -38,6 +39,10 @@ json_t *blktmpl_request_jansson(gbt_capabilities_t caps) {
 	if (json_object_set_new(req, "capabilities", jcaps))
 		goto err;
 	jcaps = NULL;
+	if (!(jstr = json_integer(BLKMAKER_MAX_BLOCK_VERSION)))
+		goto err;
+	if (json_object_set_new(req, "maxversion", jstr))
+		goto err;
 	if (json_object_set_new(reqf, "id", jstr))
 		goto err;
 	if (!(jstr = json_string("getblocktemplate")))

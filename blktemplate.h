@@ -50,16 +50,18 @@ typedef enum {
 	BMM_TIMEDEC  = 1 << 0x14,
 	BMM_TXNADD   = 1 << 0x15,
 	BMM_PREVBLK  = 1 << 0x16,
+	BMM_VERFORCE = 1 << 0x17,
+	BMM_VERDROP  = 1 << 0x18,
 	
 	// BIP 23: Submission Abbreviation
-	BMA_TXNHASH   = 1 << 0x18,
-	BMAb_COINBASE = 1 << 0x19,
-	BMAb_TRUNCATE = 1 << 0x1a,
-	BMAs_COINBASE = 1 << 0x1b,
-	BMAs_MERKLE   = 1 << 0x1c,
-	BMAs_TRUNCATE = 1 << 0x1d,
+	BMA_TXNHASH   = 1 << 0x19,
+	BMAb_COINBASE = 1 << 0x1a,
+	BMAb_TRUNCATE = 1 << 0x1b,
+	BMAs_COINBASE = 1 << 0x1c,
+	BMAs_MERKLE   = 1 << 0x1d,
+	BMAs_TRUNCATE = 1 << 0x1e,
 } gbt_capabilities_t;
-#define GBT_CAPABILITY_COUNT  (0x1e)
+#define GBT_CAPABILITY_COUNT  (0x1f)
 
 extern const char *blktmpl_capabilityname(gbt_capabilities_t);
 #define BLKTMPL_LONGEST_CAPABILITY_NAME  (16)
