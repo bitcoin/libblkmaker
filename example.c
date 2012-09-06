@@ -9,6 +9,8 @@
 #include <blkmaker.h>
 #include <blkmaker_jansson.h>
 
+#include "testinput.c"
+
 static
 void send_json(json_t *req) {
 	char *s = json_dumps(req, JSON_INDENT(2));
@@ -38,7 +40,13 @@ int main(int argc, char**argv) {
 	// send req to server and parse response into req
 	send_json(req);
 	json_decref(req);
-	req = json_loadf(stdin, JSON_DISABLE_EOF_CHECK, &jsone);
+	if (argc == 2)
+		req = json_loadf(stdin, JSON_DISABLE_EOF_CHECK, &jsone);
+	else
+	{
+		req = json_loads(blkmaker_test_input, 0, &jsone);
+		send_json(req);
+	}
 	assert(req);
 	
 	err = blktmpl_add_jansson(tmpl, req, time(NULL));
