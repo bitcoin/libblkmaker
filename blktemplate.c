@@ -24,7 +24,8 @@ static const char *capnames[] = {
 	"time/decrement",
 	"transactions/add",
 	"prevblock",
-	NULL,
+	"version/force",
+	"version/reduce",
 	
 	"submit/hash",
 	"submit/coinbase",
