@@ -178,6 +178,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	}
 	
 	GETHEX(bits, diffbits);
+	my_flip(tmpl->diffbits, 4);
 	GETNUM(curtime);
 	GETNUM(height);
 	GETHEX(previousblockhash, prevblk);
