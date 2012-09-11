@@ -277,13 +277,8 @@ json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, uns
 	{
 		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
 		
-		memcpy(&blk[offs], tmpl->cbtxn->data, tmpl->cbtxn->datasz);
-		offs += tmpl->cbtxn->datasz;
-		if (dataid)
-		{
-			*(int*)&blk[offs] = dataid;
-			offs += sizeof(dataid);
-		}
+		if (!_blkmk_extranonce(tmpl, &blk[offs], dataid, &offs))
+			return NULL;
 		
 		if (!(tmpl->mutations & BMAb_COINBASE))
 			for (int i = 0; i < tmpl->txncount; ++i)

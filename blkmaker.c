@@ -55,9 +55,17 @@ bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigne
 
 static const int cbScriptSigLen = 4 + 1 + 36;
 
-bool _blkmk_extranonce(void *vout, void *vin, size_t insz, unsigned int workid) {
+bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, size_t *offs) {
 	unsigned char *out = vout;
-	unsigned char *in = vin;
+	unsigned char *in = tmpl->cbtxn->data;
+	size_t insz = tmpl->cbtxn->datasz;
+	
+	if (!workid)
+	{
+		memcpy(vout, in, insz);
+		*offs += insz;
+		return true;
+	}
 	
 	if (in[cbScriptSigLen] > 100 - sizeof(workid))
 		return false;
@@ -70,7 +78,8 @@ bool _blkmk_extranonce(void *vout, void *vin, size_t insz, unsigned int workid) 
 	unsigned char *outPostScriptSig = &out[cbPostScriptSig];
 	unsigned int *outExtranonce = (void*)outPostScriptSig;
 	outPostScriptSig += sizeof(workid);
-	*outExtranonce = workid;
+	*offs += insz + sizeof(workid);
+	*outExtranonce = 0xd1cedeed; //workid;
 	
 	memcpy(outPostScriptSig, &in[cbPostScriptSig], insz - cbPostScriptSig);
 	
@@ -89,16 +98,10 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	memcpy(&cbuf[4], &tmpl->prevblk, 32);
 	
 	unsigned char cbtxndata[tmpl->cbtxn->datasz + sizeof(*out_dataid)];
-	size_t cbtxndatasz = tmpl->cbtxn->datasz;
+	size_t cbtxndatasz = 0;
 	*out_dataid = tmpl->next_dataid++;
-	if (*out_dataid)
-	{
-		if (!_blkmk_extranonce(cbtxndata, tmpl->cbtxn->data, tmpl->cbtxn->datasz, *out_dataid))
-			return 0;
-		cbtxndatasz += sizeof(*out_dataid);
-	}
-	else
-		memcpy(cbtxndata, tmpl->cbtxn->data, cbtxndatasz);
+	if (!_blkmk_extranonce(tmpl, cbtxndata, *out_dataid, &cbtxndatasz))
+		return 0;
 	if (!build_merkle_root(&cbuf[36], tmpl, cbtxndata, cbtxndatasz))
 		return 0;
 	
