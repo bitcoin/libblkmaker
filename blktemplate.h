@@ -65,6 +65,7 @@ typedef enum {
 
 extern const char *blktmpl_capabilityname(gbt_capabilities_t);
 #define BLKTMPL_LONGEST_CAPABILITY_NAME  (16)
+extern gbt_capabilities_t blktmpl_getcapability(const char *);
 
 
 typedef gbt_capabilities_t blkmutations_t;

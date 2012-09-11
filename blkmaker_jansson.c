@@ -166,7 +166,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	if (tmpl->version)
 		return false;
 	
-	json_t *v;
+	json_t *v, *v2;
 	const char *s;
 	
 	if ((v = json_object_get(json, "result")))
@@ -209,6 +209,17 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	}
 	
 	// TODO: coinbaseaux
+	
+	if ((v = json_object_get(json, "mutable")) && json_is_array(v))
+	{
+		for (size_t i = json_array_size(v); i--; )
+		{
+			v2 = json_array_get(v, i);
+			if (!json_is_string(v2))
+				continue;
+			tmpl->mutations |= blktmpl_getcapability(json_string_value(v2));
+		}
+	}
 	
 	tmpl->_time_rcvd = time_rcvd;
 	
@@ -261,14 +272,20 @@ json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, blk
 	memcpy(blk, data, 76);
 	*(uint32_t*)(&blk[76]) = htonl(nonce);
 	size_t offs = 80;
-	offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
 	
-	memcpy(&blk[offs], tmpl->cbtxn->data, tmpl->cbtxn->datasz);
-	offs += tmpl->cbtxn->datasz;
-	for (int i = 0; i < tmpl->txncount; ++i)
+	if (!(tmpl->mutations & BMAb_TRUNCATE))
 	{
-		memcpy(&blk[offs], tmpl->txns[i].data, tmpl->txns[i].datasz);
-		offs += tmpl->txns[i].datasz;
+		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
+		
+		memcpy(&blk[offs], tmpl->cbtxn->data, tmpl->cbtxn->datasz);
+		offs += tmpl->cbtxn->datasz;
+		
+		if (!(tmpl->mutations & BMAb_COINBASE))
+			for (int i = 0; i < tmpl->txncount; ++i)
+			{
+				memcpy(&blk[offs], tmpl->txns[i].data, tmpl->txns[i].datasz);
+				offs += tmpl->txns[i].datasz;
+			}
 	}
 	
 	char blkhex[(offs * 2) + 1];

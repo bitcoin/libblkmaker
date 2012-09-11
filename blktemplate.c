@@ -42,6 +42,13 @@ const char *blktmpl_capabilityname(gbt_capabilities_t caps) {
 	return NULL;
 }
 
+gbt_capabilities_t blktmpl_getcapability(const char *n) {
+	for (int i = 0; i < sizeof(capnames); ++i)
+		if (capnames[i] && !strcasecmp(n, capnames[i]))
+			return 1 << i;
+	return 0;
+}
+
 blktemplate_t *blktmpl_create() {
 	blktemplate_t *tmpl;
 	tmpl = calloc(1, sizeof(*tmpl));
