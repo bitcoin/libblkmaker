@@ -60,10 +60,11 @@ int main(int argc, char**argv) {
 	{
 		unsigned char data[80], hash[32];
 		size_t datasz;
+		unsigned int dataid;
 		uint32_t nonce;
 		
-		datasz = blkmk_get_data(tmpl, data, sizeof(data), time(NULL), NULL);
-		assert(datasz <= sizeof(data));
+		datasz = blkmk_get_data(tmpl, data, sizeof(data), time(NULL), NULL, &dataid);
+		assert(datasz >= 76 && datasz <= sizeof(data));
 		
 		// mine the right nonce
 		// this is iterating in native order, even though SHA256 is big endian, because we don't implement noncerange
@@ -84,7 +85,7 @@ int main(int argc, char**argv) {
 		printf("Found nonce: 0x%8" PRIx32 " \n", nonce);
 		nonce = ntohl(nonce);
 		
-		req = blkmk_submit_jansson(tmpl, data, nonce);
+		req = blkmk_submit_jansson(tmpl, data, dataid, nonce);
 		assert(req);
 		// send req to server
 		send_json(req);

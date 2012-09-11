@@ -111,6 +111,7 @@ typedef struct {
 	
 	// TEMPORARY HACK
 	libblkmaker_hash_t _mrklroot;
+	unsigned int next_dataid;
 } blktemplate_t;
 
 extern blktemplate_t *blktmpl_create();

@@ -267,18 +267,23 @@ void my_bin2hex(char *out, const void *data, size_t datasz) {
 	}
 }
 
-json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, blknonce_t nonce) {
+json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce) {
 	unsigned char blk[80 + 8 + 1000000];
 	memcpy(blk, data, 76);
 	*(uint32_t*)(&blk[76]) = htonl(nonce);
 	size_t offs = 80;
 	
-	if (!(tmpl->mutations & BMAb_TRUNCATE))
+	if (!(tmpl->mutations & BMAb_TRUNCATE && !dataid))
 	{
 		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
 		
 		memcpy(&blk[offs], tmpl->cbtxn->data, tmpl->cbtxn->datasz);
 		offs += tmpl->cbtxn->datasz;
+		if (dataid)
+		{
+			*(int*)&blk[offs] = dataid;
+			offs += sizeof(dataid);
+		}
 		
 		if (!(tmpl->mutations & BMAb_COINBASE))
 			for (int i = 0; i < tmpl->txncount; ++i)
