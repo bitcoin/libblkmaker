@@ -29,7 +29,7 @@ const char *blkmaker_test_input =
 		"\"curtime\": 1346886758,"
 		"\"mutable\": [\"coinbase/append\"],"
 		"\"sizelimit\": 1000000,"
-		"\"bits\": \"1d00ffff\""
+		"\"bits\": \"ffff001d\""
 	"},"
 	"\"id\": 2,"
 	"\"error\": null"
