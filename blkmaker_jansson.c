@@ -162,7 +162,7 @@ void my_flip(void *data, size_t datasz) {
 	}
 }
 
-const char *blktmpl_add_jansson(blktemplate_t *tmpl, json_t *json, time_t time_rcvd) {
+const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t time_rcvd) {
 	if (tmpl->version)
 		return false;
 	
