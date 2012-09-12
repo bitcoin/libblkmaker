@@ -31,7 +31,7 @@ const char *blkmaker_test_input =
 		"\"sizelimit\": 1000000,"
 		"\"bits\": \"ffff001d\""
 	"},"
-	"\"id\": 2,"
+	"\"id\": 0,"
 	"\"error\": null"
 "}"
 ;
