@@ -79,7 +79,7 @@ bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, siz
 	unsigned int *outExtranonce = (void*)outPostScriptSig;
 	outPostScriptSig += sizeof(workid);
 	*offs += insz + sizeof(workid);
-	*outExtranonce = 0xd1cedeed; //workid;
+	*outExtranonce = workid;
 	
 	memcpy(outPostScriptSig, &in[cbPostScriptSig], insz - cbPostScriptSig);
 	
