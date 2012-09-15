@@ -116,6 +116,8 @@ typedef struct {
 
 extern blktemplate_t *blktmpl_create();
 extern gbt_capabilities_t blktmpl_addcaps(const blktemplate_t *);
+extern const struct blktmpl_longpoll_req *blktmpl_get_longpoll(blktemplate_t *);
+extern bool blktmpl_get_submitold(blktemplate_t *tmpl);
 extern void blktmpl_free(blktemplate_t *);
 
 #endif

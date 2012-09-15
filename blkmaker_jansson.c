@@ -14,7 +14,7 @@
 #	error "Jansson 2.0 with long long support required!"
 #endif
 
-json_t *blktmpl_request_jansson(gbt_capabilities_t caps) {
+json_t *blktmpl_request_jansson(gbt_capabilities_t caps, const char *lpid) {
 	json_t *req, *jcaps, *jstr, *reqf, *reqa;
 	if (!(req = json_object()))
 		return NULL;
@@ -46,6 +46,13 @@ json_t *blktmpl_request_jansson(gbt_capabilities_t caps) {
 		goto err;
 	if (json_object_set_new(req, "maxversion", jstr))
 		goto err;
+	if (lpid)
+	{
+		if (!(jstr = json_string(lpid)))
+			goto err;
+		if (json_object_set_new(req, "longpollid", jstr))
+			goto err;
+	}
 	if (!(jstr = json_string("getblocktemplate")))
 		goto err;
 	if (json_object_set_new(reqf, "method", jstr))
@@ -120,6 +127,20 @@ static bool my_hex2bin(void *o, const char *x, size_t len) {
 	tmpl->key = json_integer_value(v);      \
 } while(0)
 
+#define GETSTR(key, skey)  do {  \
+	if ((v = json_object_get(json, #key)) && json_is_string(v))  \
+		if (!(tmpl->skey = strdup(json_string_value(v))))  \
+			return "Error copying '" #key "'";  \
+} while(0)
+
+#define GETBOOL(key, skey, def)  do {  \
+	if ((v = json_object_get(json, #key)) && json_is_boolean(v))  \
+		tmpl->skey = json_is_true(v);  \
+	else  \
+	if (def)  \
+		tmpl->skey = true;  \
+} while(0)
+
 static
 const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 	json_t *vv;
@@ -191,9 +212,11 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	if ((v = json_object_get(json, "coinbasevalue")) && json_is_number(v))
 		tmpl->cbvalue = json_integer_value(v);
 	
-	if ((v = json_object_get(json, "workid")) && json_is_string(v))
-		if (!(tmpl->workid = strdup(json_string_value(v))))
-			return "Error copying 'workid'";
+	GETSTR(workid, workid);
+	
+	GETSTR(longpollid, lp.id);
+	GETSTR(longpolluri, lp.uri);
+	GETBOOL(submitold, submitold, true);
 	
 	v = json_object_get(json, "transactions");
 	size_t txns = tmpl->txncount = json_array_size(v);

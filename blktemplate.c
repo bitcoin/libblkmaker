@@ -70,6 +70,16 @@ gbt_capabilities_t blktmpl_addcaps(const blktemplate_t *tmpl) {
 	return GBT_CBTXN | GBT_WORKID | BMM_TIMEINC | BMM_CBAPPEND;
 }
 
+const struct blktmpl_longpoll_req *blktmpl_get_longpoll(blktemplate_t *tmpl) {
+	if (!tmpl->lp.id)
+		return NULL;
+	return &tmpl->lp;
+}
+
+bool blktmpl_get_submitold(blktemplate_t *tmpl) {
+	return tmpl->submitold;
+}
+
 static
 void blktxn_free(struct blktxn_t *bt) {
 	free(bt->data);
@@ -90,5 +100,7 @@ void blktmpl_free(blktemplate_t *tmpl) {
 	free(tmpl->auxnames);
 	free(tmpl->auxdata);
 	free(tmpl->workid);
+	free(tmpl->lp.id);
+	free(tmpl->lp.uri);
 	free(tmpl);
 }

@@ -34,7 +34,7 @@ int main(int argc, char**argv) {
 	
 	tmpl = blktmpl_create();
 	assert(tmpl);
-	req = blktmpl_request_jansson(blktmpl_addcaps(tmpl));
+	req = blktmpl_request_jansson(blktmpl_addcaps(tmpl), NULL);
 	assert(req);
 	
 	// send req to server and parse response into req
