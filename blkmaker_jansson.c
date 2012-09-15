@@ -245,6 +245,15 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		}
 	}
 	
+	if (tmpl->version > 2 || (tmpl->version == 2 && !tmpl->height))
+	{
+		if (tmpl->mutations & BMM_VERDROP)
+			tmpl->version = tmpl->height ? 2 : 1;
+		else
+		if (!(tmpl->mutations & BMM_VERFORCE))
+			return "Unrecognized block version, and not allowed to reduce or force it";
+	}
+	
 	tmpl->_time_rcvd = time_rcvd;
 	
 	return NULL;
