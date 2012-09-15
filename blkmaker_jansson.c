@@ -214,6 +214,8 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	GETSTR(workid, workid);
 	
+	GETNUM(expires);
+	
 	GETSTR(longpollid, lp.id);
 	GETSTR(longpolluri, lp.uri);
 	GETBOOL(submitold, submitold, true);
