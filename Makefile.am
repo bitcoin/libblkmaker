@@ -7,7 +7,7 @@ libblkmaker_@LIBBLKMAKER_API_VERSION@_la_SOURCES = \
 	blkmaker.c \
 	blktemplate.c
 
-libblkmaker_@LIBBLKMAKER_API_VERSION@_la_LDFLAGS = -version-info $(LIBBLKMAKER_SO_VERSION)
+libblkmaker_@LIBBLKMAKER_API_VERSION@_la_LDFLAGS = -version-info $(LIBBLKMAKER_SO_VERSION) -no-undefined
 
 libblkmaker_includedir = $(includedir)/libblkmaker-$(LIBBLKMAKER_API_VERSION)
 libblkmaker_include_HEADERS = \
@@ -15,7 +15,12 @@ libblkmaker_include_HEADERS = \
 	blktemplate.h
 
 libblkmaker_jansson_@LIBBLKMAKER_API_VERSION@_la_SOURCES = blkmaker_jansson.c
-libblkmaker_jansson_@LIBBLKMAKER_API_VERSION@_la_LDFLAGS = -version-info $(LIBBLKMAKER_SO_VERSION)
+libblkmaker_jansson_@LIBBLKMAKER_API_VERSION@_la_DEPENDENCIES = libblkmaker-$(LIBBLKMAKER_API_VERSION).la
+libblkmaker_jansson_@LIBBLKMAKER_API_VERSION@_la_LDFLAGS = \
+	-lblkmaker-$(LIBBLKMAKER_API_VERSION) \
+	-ljansson \
+	-no-undefined \
+	-version-info $(LIBBLKMAKER_SO_VERSION)
 
 
 pkgconfigdir = $(libdir)/pkgconfig
