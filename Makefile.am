@@ -17,6 +17,7 @@ libblkmaker_include_HEADERS = \
 libblkmaker_jansson_@LIBBLKMAKER_API_VERSION@_la_SOURCES = blkmaker_jansson.c
 libblkmaker_jansson_@LIBBLKMAKER_API_VERSION@_la_DEPENDENCIES = libblkmaker-$(LIBBLKMAKER_API_VERSION).la
 libblkmaker_jansson_@LIBBLKMAKER_API_VERSION@_la_LDFLAGS = \
+	-L.libs \
 	-lblkmaker-$(LIBBLKMAKER_API_VERSION) \
 	-ljansson \
 	-no-undefined \
