@@ -20,4 +20,4 @@ lib$(LIBNAME)_jansson.so: blkmaker_jansson.o lib$(LIBNAME).so
 	$(CC) -c -fPIC -I. $(CFLAGS) -std=c99 -o $@ $<
 
 clean:
-	rm -f *.so *.o
+	rm -f *.so *.o example
