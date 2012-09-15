@@ -52,6 +52,8 @@ gbt_capabilities_t blktmpl_getcapability(const char *n) {
 blktemplate_t *blktmpl_create() {
 	blktemplate_t *tmpl;
 	tmpl = calloc(1, sizeof(*tmpl));
+	if (!tmpl)
+		return NULL;
 	
 	tmpl->maxtime = 0xffffffff;
 	tmpl->maxtimeoff = 0x7fff;
