@@ -12,7 +12,7 @@ AC_PROG_CC_C99
 LT_INIT([disable-static])
 
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-AC_SUBST([LIBBLKMAKER_SO_VERSION], [0:0:0])
+AC_SUBST([LIBBLKMAKER_SO_VERSION], [1:0:1])
 AC_SUBST([LIBBLKMAKER_API_VERSION], [0.1])
 
 AC_CONFIG_FILES([Makefile
