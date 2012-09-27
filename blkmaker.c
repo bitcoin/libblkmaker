@@ -56,7 +56,7 @@ bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigne
 static const int cbScriptSigLen = 4 + 1 + 36;
 
 static
-bool _blkmk_append_cb(blktemplate_t *tmpl, void *vout, void *append, size_t appendsz) {
+bool _blkmk_append_cb(blktemplate_t *tmpl, void *vout, const void *append, size_t appendsz) {
 	unsigned char *out = vout;
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
@@ -83,7 +83,7 @@ bool _blkmk_append_cb(blktemplate_t *tmpl, void *vout, void *append, size_t appe
 	return true;
 }
 
-ssize_t blkmk_append_coinbase_safe(blktemplate_t *tmpl, void *append, size_t appendsz) {
+ssize_t blkmk_append_coinbase_safe(blktemplate_t *tmpl, const void *append, size_t appendsz) {
 	if (!(tmpl->mutations & (BMM_CBAPPEND | BMM_CBSET)))
 		return -1;
 	
