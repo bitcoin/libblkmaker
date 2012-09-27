@@ -55,8 +55,56 @@ bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigne
 
 static const int cbScriptSigLen = 4 + 1 + 36;
 
-bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, size_t *offs) {
+static
+bool _blkmk_append_cb(blktemplate_t *tmpl, void *vout, void *append, size_t appendsz) {
 	unsigned char *out = vout;
+	unsigned char *in = tmpl->cbtxn->data;
+	size_t insz = tmpl->cbtxn->datasz;
+	
+	if (in[cbScriptSigLen] > 100 - appendsz)
+		return false;
+	
+	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
+	unsigned char *outPostScriptSig = &out[cbPostScriptSig];
+	void *outExtranonce = (void*)outPostScriptSig;
+	outPostScriptSig += appendsz;
+	
+	if (out != in)
+	{
+		memcpy(out, in, cbPostScriptSig+1);
+		memcpy(outPostScriptSig, &in[cbPostScriptSig], insz - cbPostScriptSig);
+	}
+	else
+		memmove(outPostScriptSig, &in[cbPostScriptSig], insz - cbPostScriptSig);
+	
+	out[cbScriptSigLen] += appendsz;
+	memcpy(outExtranonce, append, appendsz);
+	
+	return true;
+}
+
+ssize_t blkmk_append_coinbase_safe(blktemplate_t *tmpl, void *append, size_t appendsz) {
+	if (!(tmpl->mutations & (BMM_CBAPPEND | BMM_CBSET)))
+		return -1;
+	
+	size_t datasz = tmpl->cbtxn->datasz;
+	size_t availsz = 100 - sizeof(unsigned int) - tmpl->cbtxn->data[cbScriptSigLen];
+	if (appendsz > availsz)
+		return availsz;
+	
+	void *newp = realloc(tmpl->cbtxn->data, datasz + appendsz);
+	if (!newp)
+		return -2;
+	
+	tmpl->cbtxn->data = newp;
+	if (!_blkmk_append_cb(tmpl, newp, append, appendsz))
+		return -3;
+	tmpl->cbtxn->datasz += appendsz;
+	
+	return availsz;
+}
+
+bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, size_t *offs) {
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
 	
@@ -67,21 +115,10 @@ bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, siz
 		return true;
 	}
 	
-	if (in[cbScriptSigLen] > 100 - sizeof(workid))
+	if (!_blkmk_append_cb(tmpl, vout, &workid, sizeof(workid)))
 		return false;
 	
-	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
-	
-	memcpy(out, in, cbPostScriptSig+1);
-	out[cbScriptSigLen] += sizeof(workid);
-	
-	unsigned char *outPostScriptSig = &out[cbPostScriptSig];
-	unsigned int *outExtranonce = (void*)outPostScriptSig;
-	outPostScriptSig += sizeof(workid);
 	*offs += insz + sizeof(workid);
-	*outExtranonce = workid;
-	
-	memcpy(outPostScriptSig, &in[cbPostScriptSig], insz - cbPostScriptSig);
 	
 	return true;
 }
