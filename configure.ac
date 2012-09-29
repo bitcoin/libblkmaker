@@ -9,6 +9,7 @@ AC_PREREQ([2.59])
 AM_INIT_AUTOMAKE([1.10 -Wall dist-bzip2])
 
 AC_PROG_CC_C99
+AM_PROG_AR
 LT_INIT([disable-static])
 
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html

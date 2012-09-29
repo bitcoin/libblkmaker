@@ -22,3 +22,4 @@ autom4te.cache
 *.lo
 config.*
 ii
+ar-lib
