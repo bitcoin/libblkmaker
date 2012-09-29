@@ -179,7 +179,7 @@ void my_flip(void *data, size_t datasz) {
 	char *cdata = (char*)data;
 	--datasz;
 	size_t hds = datasz / 2;
-	for (int i = 0; i <= hds; ++i)
+	for (size_t i = 0; i <= hds; ++i)
 	{
 		int altp = datasz - i;
 		char c = cdata[i];
@@ -320,7 +320,7 @@ json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, uns
 			return NULL;
 		
 		if (!(tmpl->mutations & BMAb_COINBASE))
-			for (int i = 0; i < tmpl->txncount; ++i)
+			for (unsigned long i = 0; i < tmpl->txncount; ++i)
 			{
 				memcpy(&blk[offs], tmpl->txns[i].data, tmpl->txns[i].datasz);
 				offs += tmpl->txns[i].datasz;

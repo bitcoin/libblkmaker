@@ -31,7 +31,7 @@ bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigne
 	
 	if (!dblsha256(&hashes[0], cbtxndata, cbtxndatasz))
 		return false;
-	for (int i = 0; i < tmpl->txncount; ++i)
+	for (unsigned long i = 0; i < tmpl->txncount; ++i)
 		if (!dblsha256(&hashes[32 * (i + 1)], tmpl->txns[i].data, tmpl->txns[i].datasz))
 			return false;
 	
@@ -42,7 +42,7 @@ bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigne
 			memcpy(&hashes[32 * hashcount], &hashes[32 * (hashcount - 1)], 32);
 			++hashcount;
 		}
-		for (int i = 0; i < hashcount; i += 2)
+		for (size_t i = 0; i < hashcount; i += 2)
 			// This is where we overlap input and output, on the first pair
 			if (!dblsha256(&hashes[i / 2 * 32], &hashes[32 * i], 64))
 				return false;
