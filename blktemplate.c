@@ -36,14 +36,14 @@ static const char *capnames[] = {
 };
 
 const char *blktmpl_capabilityname(gbt_capabilities_t caps) {
-	for (unsigned int i = 0; i < sizeof(capnames); ++i)
+	for (unsigned int i = 0; i < GBT_CAPABILITY_COUNT; ++i)
 		if (caps & (1 << i))
 			return capnames[i];
 	return NULL;
 }
 
 gbt_capabilities_t blktmpl_getcapability(const char *n) {
-	for (unsigned int i = 0; i < sizeof(capnames); ++i)
+	for (unsigned int i = 0; i < GBT_CAPABILITY_COUNT; ++i)
 		if (capnames[i] && !strcasecmp(n, capnames[i]))
 			return 1 << i;
 	return 0;
