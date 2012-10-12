@@ -4,6 +4,7 @@ lib_LTLIBRARIES = \
 
 
 libblkmaker_@LIBBLKMAKER_API_VERSION@_la_SOURCES = \
+	base58.c \
 	blkmaker.c \
 	blktemplate.c \
 	hex.c

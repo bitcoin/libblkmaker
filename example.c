@@ -9,7 +9,21 @@
 #include <blkmaker.h>
 #include <blkmaker_jansson.h>
 
+#include "private.h"
 #include "testinput.c"
+
+void testb58() {
+	char bufx[26] = {'\xff'};
+	char *buf = &bufx[1];
+	if (!_blkmk_b58tobin(buf, 25, "1Baf75Ferj6A7AoN565gCQj9kGWbDMHfN9", 0))
+		exit(1);
+	if (bufx[0] != '\xff')
+		exit(2);
+	char cbuf[51];
+	_blkmk_bin2hex(cbuf, buf, 25);
+	printf("Base58 raw data: %s\n", cbuf);
+	printf("Base58 check: %d\n", _blkmk_b58check(buf, 25));
+}
 
 static
 void send_json(json_t *req) {
@@ -31,6 +45,8 @@ int main(int argc, char**argv) {
 	const char *err;
 	
 	blkmk_sha256_impl = my_sha256;
+	
+	testb58();
 	
 	tmpl = blktmpl_create();
 	assert(tmpl);

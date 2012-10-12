@@ -1,5 +1,6 @@
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -8,12 +9,20 @@
 #include <blkmaker.h>
 #include <blktemplate.h>
 
+#include "private.h"
+
 static inline
 void my_htole32(unsigned char *buf, uint32_t n) {
 	buf[0] = (n >>  0) % 256;
 	buf[1] = (n >>  8) % 256;
 	buf[2] = (n >> 16) % 256;
 	buf[3] = (n >> 24) % 256;
+}
+
+static inline
+void my_htole64(unsigned char *buf, uint64_t n) {
+	for (int i = 0; i < 8; ++i)
+		buf[i] = (n >>  (8*i)) & 0xff;
 }
 
 
@@ -24,6 +33,46 @@ bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz) {
 }
 
 #define dblsha256 _blkmk_dblsha256
+
+uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scriptsz) {
+	if (tmpl->cbtxn)
+		return 0;
+	
+	// Skip "no extranonce" scriptSig, since it would be too short (min 2 bytes)
+	++tmpl->next_dataid;
+	
+	size_t datasz = 60 + scriptsz;
+	unsigned char *data = malloc(datasz);
+	if (!data)
+		return 0;
+	
+	memcpy(&data[0],
+		"\x01\0\0\0"  // txn ver
+		"\x01"        // input count
+			"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"  // prevout
+			"\xff\xff\xff\xff"  // index (-1)
+			"\0"                // scriptSig length (0; extranonce will bring up to 4)
+			"\xff\xff\xff\xff"  // sequence
+		"\x01"        // output count
+		, 47);
+	my_htole64(&data[47], tmpl->cbvalue);
+	data[55] = scriptsz;
+	memcpy(&data[56], script, scriptsz);
+	memset(&data[56 + scriptsz], 0, 4);  // lock time
+	
+	struct blktxn_t *txn = calloc(1, sizeof(*tmpl->cbtxn));
+	if (!tmpl->cbtxn)
+	{
+		free(data);
+		return 0;
+	}
+	
+	txn->data = data;
+	txn->datasz = datasz;
+	
+	tmpl->cbtxn = txn;
+	return tmpl->cbvalue;
+}
 
 static
 bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigned char *cbtxndata, size_t cbtxndatasz) {
