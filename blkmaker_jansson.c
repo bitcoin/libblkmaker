@@ -189,7 +189,8 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	GETSTR(workid, workid);
 	
-	GETNUM(expires);
+	if (json_object_get(json, "expires"))
+		GETNUM(expires);
 	
 	GETSTR(longpollid, lp.id);
 	GETSTR(longpolluri, lp.uri);
