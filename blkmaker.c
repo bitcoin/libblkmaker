@@ -38,11 +38,9 @@ uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scripts
 	if (tmpl->cbtxn)
 		return 0;
 	
-	// Skip "no extranonce" scriptSig, since it would be too short (min 2 bytes)
-	++tmpl->next_dataid;
-	
-	size_t datasz = 60 + scriptsz;
+	size_t datasz = 62 + sizeof(blkheight_t) + scriptsz;
 	unsigned char *data = malloc(datasz);
+	size_t off = 0;
 	if (!data)
 		return 0;
 	
@@ -51,14 +49,33 @@ uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scripts
 		"\x01"        // input count
 			"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"  // prevout
 			"\xff\xff\xff\xff"  // index (-1)
-			"\0"                // scriptSig length (0; extranonce will bring up to 4)
+			"\x02"              // scriptSig length
+			// height serialization length (set later)
+		, 42);
+	off += 43;
+	
+	blkheight_t h = tmpl->height;
+	while (h > 127)
+	{
+		++data[41];
+		data[off++] = h & 0xff;
+		h >>= 8;
+	}
+	data[off++] = h;
+	data[42] = data[41] - 1;
+	
+	memcpy(&data[off],
 			"\xff\xff\xff\xff"  // sequence
 		"\x01"        // output count
-		, 47);
-	my_htole64(&data[47], tmpl->cbvalue);
-	data[55] = scriptsz;
-	memcpy(&data[56], script, scriptsz);
-	memset(&data[56 + scriptsz], 0, 4);  // lock time
+		, 5);
+	off += 5;
+	my_htole64(&data[off], tmpl->cbvalue);
+	off += 8;
+	data[off++] = scriptsz;
+	memcpy(&data[off], script, scriptsz);
+	off += scriptsz;
+	memset(&data[off], 0, 4);  // lock time
+	off += 4;
 	
 	struct blktxn_t *txn = calloc(1, sizeof(*tmpl->cbtxn));
 	if (!tmpl->cbtxn)
@@ -68,7 +85,7 @@ uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scripts
 	}
 	
 	txn->data = data;
-	txn->datasz = datasz;
+	txn->datasz = off;
 	
 	tmpl->cbtxn = txn;
 	return tmpl->cbvalue;
