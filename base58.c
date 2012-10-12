@@ -105,14 +105,14 @@ size_t blkmk_address_to_script(void *out, size_t outsz, const char *addr) {
 	switch (addrver) {
 		case   0:  // Bitcoin pubkey hash
 		case 111:  // Testnet pubkey hash
-			if (outsz < (rv = 24))
+			if (outsz < (rv = 25))
 				return rv;
 			cout[ 0] = 0x76;  // OP_DUP
 			cout[ 1] = 0xa9;  // OP_HASH160
 			cout[ 2] = 0x14;  // push 20 bytes
 			memcpy(&cout[3], &addrbin[1], 20);
-			cout[22] = 0x88;  // OP_EQUALVERIFY
-			cout[23] = 0xac;  // OP_CHECKSIG
+			cout[23] = 0x88;  // OP_EQUALVERIFY
+			cout[24] = 0xac;  // OP_CHECKSIG
 			return rv;
 		case   5:  // Bitcoin script hash
 		case 196:  // Testnet script hash
