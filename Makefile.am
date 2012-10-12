@@ -5,7 +5,8 @@ lib_LTLIBRARIES = \
 
 libblkmaker_@LIBBLKMAKER_API_VERSION@_la_SOURCES = \
 	blkmaker.c \
-	blktemplate.c
+	blktemplate.c \
+	hex.c
 
 libblkmaker_@LIBBLKMAKER_API_VERSION@_la_LDFLAGS = -version-info $(LIBBLKMAKER_SO_VERSION) -no-undefined
 
