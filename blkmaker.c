@@ -19,10 +19,11 @@ void my_htole32(unsigned char *buf, uint32_t n) {
 
 bool (*blkmk_sha256_impl)(void *, const void *, size_t) = NULL;
 
-static
-bool dblsha256(void *hash, const void *data, size_t datasz) {
+bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz) {
 	return blkmk_sha256_impl(hash, data, datasz) && blkmk_sha256_impl(hash, hash, 32);
 }
+
+#define dblsha256 _blkmk_dblsha256
 
 static
 bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigned char *cbtxndata, size_t cbtxndatasz) {
