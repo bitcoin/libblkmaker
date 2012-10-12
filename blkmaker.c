@@ -78,7 +78,7 @@ bool _blkmk_extranonce(void *vout, void *vin, size_t insz, unsigned int workid) 
 }
 
 size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t usetime, int16_t *out_expire, unsigned int *out_dataid) {
-	if (!(blkmk_time_left(tmpl, usetime) && blkmk_work_left(tmpl)))
+	if (!(blkmk_time_left(tmpl, usetime) && blkmk_work_left(tmpl) && tmpl->cbtxn))
 		return 0;
 	if (bufsz < 76)
 		return 76;
