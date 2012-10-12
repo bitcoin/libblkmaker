@@ -78,7 +78,7 @@ uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scripts
 	off += 4;
 	
 	struct blktxn_t *txn = calloc(1, sizeof(*tmpl->cbtxn));
-	if (!tmpl->cbtxn)
+	if (!txn)
 	{
 		free(data);
 		return 0;
