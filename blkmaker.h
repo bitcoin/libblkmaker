@@ -2,6 +2,7 @@
 #define BLKMAKER_H
 
 #include <stdbool.h>
+#include <unistd.h>
 
 #include <blktemplate.h>
 
