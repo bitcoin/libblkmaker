@@ -13,7 +13,7 @@ m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 LT_INIT([disable-static])
 
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-AC_SUBST([LIBBLKMAKER_SO_VERSION], [1:1:1])
+AC_SUBST([LIBBLKMAKER_SO_VERSION], [2:0:2])
 AC_SUBST([LIBBLKMAKER_API_VERSION], [0.1])
 
 AC_CONFIG_FILES([Makefile
