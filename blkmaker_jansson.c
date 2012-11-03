@@ -102,6 +102,13 @@ err:
 	tmpl->key = json_integer_value(v);      \
 } while(0)
 
+#define GETNUM_O2(key, skey)  do {  \
+	if ((v = json_object_get(json, #skey)) && json_is_number(v))  \
+		tmpl->key = json_integer_value(v);  \
+} while(0)
+
+#define GETNUM_O(key)  GETNUM_O2(key, key)
+
 #define GETSTR(key, skey)  do {  \
 	if ((v = json_object_get(json, #key)) && json_is_string(v))  \
 		if (!(tmpl->skey = strdup(json_string_value(v))))  \
@@ -184,13 +191,11 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	GETNUM(sizelimit);
 	GETNUM(version);
 	
-	if ((v = json_object_get(json, "coinbasevalue")) && json_is_number(v))
-		tmpl->cbvalue = json_integer_value(v);
+	GETNUM_O2(cbvalue, coinbasevalue);
 	
 	GETSTR(workid, workid);
 	
-	if (json_object_get(json, "expires"))
-		GETNUM(expires);
+	GETNUM_O(expires);
 	
 	GETSTR(longpollid, lp.id);
 	GETSTR(longpolluri, lp.uri);
