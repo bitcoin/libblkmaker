@@ -1,5 +1,6 @@
 #define _BSD_SOURCE
 
+#include <limits.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +45,9 @@ const char *blktmpl_capabilityname(gbt_capabilities_t caps) {
 blktemplate_t *blktmpl_create() {
 	blktemplate_t *tmpl;
 	tmpl = calloc(1, sizeof(*tmpl));
+	
+	tmpl->sigoplimit = USHRT_MAX;
+	tmpl->sizelimit = ULONG_MAX;
 	
 	tmpl->maxtime = 0xffffffff;
 	tmpl->maxtimeoff = 0x7fff;

@@ -174,8 +174,10 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, json_t *json, time_t time_r
 	GETNUM(height);
 	GETHEX(previousblockhash, prevblk);
 	my_flip(tmpl->prevblk, 32);
-	GETNUM(sigoplimit);
-	GETNUM(sizelimit);
+	if (json_object_get(json, "sigoplimit"))
+		GETNUM(sigoplimit);
+	if (json_object_get(json, "sizelimit"))
+		GETNUM(sizelimit);
 	GETNUM(version);
 	
 	if ((v = json_object_get(json, "coinbasevalue")) && json_is_number(v))
