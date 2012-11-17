@@ -187,8 +187,8 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	GETNUM(height);
 	GETHEX(previousblockhash, prevblk);
 	my_flip(tmpl->prevblk, 32);
-	GETNUM(sigoplimit);
-	GETNUM(sizelimit);
+	GETNUM_O(sigoplimit);
+	GETNUM_O(sizelimit);
 	GETNUM(version);
 	
 	GETNUM_O2(cbvalue, coinbasevalue);
