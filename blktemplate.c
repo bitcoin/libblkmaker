@@ -1,5 +1,6 @@
 #define _BSD_SOURCE
 
+#include <limits.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +55,9 @@ blktemplate_t *blktmpl_create() {
 	tmpl = calloc(1, sizeof(*tmpl));
 	if (!tmpl)
 		return NULL;
+	
+	tmpl->sigoplimit = USHRT_MAX;
+	tmpl->sizelimit = ULONG_MAX;
 	
 	tmpl->maxtime = 0xffffffff;
 	tmpl->maxtimeoff = 0x7fff;
