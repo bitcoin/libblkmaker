@@ -88,6 +88,9 @@ uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scripts
 	txn->datasz = off;
 	
 	tmpl->cbtxn = txn;
+	
+	tmpl->mutations |= BMM_CBAPPEND | BMM_CBSET | BMM_GENERATE;
+	
 	return tmpl->cbvalue;
 }
 
