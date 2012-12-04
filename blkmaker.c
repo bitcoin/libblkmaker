@@ -34,9 +34,16 @@ bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz) {
 
 #define dblsha256 _blkmk_dblsha256
 
-uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scriptsz) {
+uint64_t blkmk_init_generation2(blktemplate_t *tmpl, void *script, size_t scriptsz, bool *out_newcb) {
 	if (tmpl->cbtxn)
+	{
+		if (out_newcb)
+			*out_newcb = false;
 		return 0;
+	}
+	
+	if (out_newcb)
+		*out_newcb = true;
 	
 	size_t datasz = 62 + sizeof(blkheight_t) + scriptsz;
 	unsigned char *data = malloc(datasz);
@@ -92,6 +99,10 @@ uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scripts
 	tmpl->mutations |= BMM_CBAPPEND | BMM_CBSET | BMM_GENERATE;
 	
 	return tmpl->cbvalue;
+}
+
+uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scriptsz) {
+	return blkmk_init_generation2(tmpl, script, scriptsz, NULL);
 }
 
 static
