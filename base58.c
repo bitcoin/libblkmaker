@@ -83,13 +83,21 @@ bool _blkmk_b58tobin(void *bin, size_t binsz, const char *b58, size_t b58sz) {
 	return true;
 }
 
-int _blkmk_b58check(void *bin, size_t binsz) {
+int _blkmk_b58check(void *bin, size_t binsz, const char *base58str) {
 	unsigned char buf[32];
 	unsigned char *binc = bin;
+	unsigned i;
 	if (!_blkmk_dblsha256(buf, bin, binsz - 4))
 		return -2;
 	if (memcmp(&binc[binsz - 4], buf, 4))
 		return -1;
+	
+	// Check number of zeros is correct AFTER verifying checksum (to avoid possibility of accessing base58str beyond the end)
+	for (i = 0; binc[i] == '\0' && base58str[i] == '1'; ++i)
+	{}  // Just finding the end of zeros, nothing to do in loop
+	if (binc[i] == '\0' || base58str[i] == '1')
+		return -3;
+	
 	return binc[0];
 }
 
@@ -101,7 +109,7 @@ size_t blkmk_address_to_script(void *out, size_t outsz, const char *addr) {
 	
 	if (!_blkmk_b58tobin(addrbin, sizeof(addrbin), addr, 0))
 		return 0;
-	addrver = _blkmk_b58check(addrbin, sizeof(addrbin));
+	addrver = _blkmk_b58check(addrbin, sizeof(addrbin), addr);
 	switch (addrver) {
 		case   0:  // Bitcoin pubkey hash
 		case 111:  // Testnet pubkey hash

@@ -13,6 +13,6 @@ extern bool _blkmk_hex2bin(void *o, const char *x, size_t len);
 
 // base58.c
 extern bool _blkmk_b58tobin(void *bin, size_t binsz, const char *b58, size_t b58sz);
-extern int _blkmk_b58check(void *bin, size_t binsz);
+extern int _blkmk_b58check(void *bin, size_t binsz, const char *b58);
 
 #endif
