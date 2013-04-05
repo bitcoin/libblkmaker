@@ -273,20 +273,21 @@ char varintEncode(unsigned char *out, uint64_t n) {
 
 #define my_bin2hex _blkmk_bin2hex
 
-json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce) {
+static
+json_t *_blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce, bool foreign) {
 	unsigned char blk[80 + 8 + 1000000];
 	memcpy(blk, data, 76);
 	*(uint32_t*)(&blk[76]) = htonl(nonce);
 	size_t offs = 80;
 	
-	if (!(tmpl->mutations & BMAb_TRUNCATE && !dataid))
+	if (foreign || (!(tmpl->mutations & BMAb_TRUNCATE && !dataid)))
 	{
 		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
 		
 		if (!_blkmk_extranonce(tmpl, &blk[offs], dataid, &offs))
 			return NULL;
 		
-		if (!(tmpl->mutations & BMAb_COINBASE))
+		if (foreign || !(tmpl->mutations & BMAb_COINBASE))
 			for (unsigned long i = 0; i < tmpl->txncount; ++i)
 			{
 				memcpy(&blk[offs], tmpl->txns[i].data, tmpl->txns[i].datasz);
@@ -305,7 +306,7 @@ json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, uns
 		goto err;
 	if (!(ja = json_object()))
 		goto err;
-	if (tmpl->workid)
+	if (tmpl->workid && !foreign)
 	{
 		if (!(jb = json_string(tmpl->workid)))
 			goto err;
@@ -337,4 +338,12 @@ err:
 	if (ja)  json_decref(ja);
 	if (jb)  json_decref(jb);
 	return NULL;
+}
+
+json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce) {
+	return _blkmk_submit_jansson(tmpl, data, dataid, nonce, false);
+}
+
+json_t *blkmk_submit_foreign_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce) {
+	return _blkmk_submit_jansson(tmpl, data, dataid, nonce, true);
 }
