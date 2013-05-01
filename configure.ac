@@ -20,6 +20,27 @@ AC_CONFIG_FILES([Makefile
 	libblkmaker_jansson-${LIBBLKMAKER_API_VERSION}.pc:libblkmaker_jansson.pc.in
 ])
 
+PKG_CHECK_MODULES([JANSSON],[jansson],[
+	true
+],[
+	AC_MSG_CHECKING([for jansson in system-default locations])
+	LIBS="$LIBS -ljansson"
+	AC_TRY_LINK([
+		#include <jansson.h>
+	],[
+		json_object();
+	],[
+		AC_MSG_RESULT([found])
+		JANSSON_LIBS=-ljansson
+	],[
+		AC_MSG_RESULT([not found])
+		AC_MSG_ERROR([Could not find jansson library])
+	])
+	LIBS="${save_LIBS}"
+])
+AC_SUBST(JANSSON_CFLAGS)
+AC_SUBST(JANSSON_LIBS)
+
 AC_CHECK_LIB([ws2_32], [strchr])
 
 AC_OUTPUT
