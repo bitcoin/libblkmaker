@@ -1,3 +1,8 @@
+# Copyright 2012-2013 Luke Dashjr
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the standard MIT license.  See COPYING for more details.
+
 lib_LTLIBRARIES = \
 	libblkmaker_jansson-@LIBBLKMAKER_API_VERSION@.la \
 	libblkmaker-@LIBBLKMAKER_API_VERSION@.la
