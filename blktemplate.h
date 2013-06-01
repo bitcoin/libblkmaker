@@ -1,3 +1,10 @@
+/*
+ * Copyright 2012 Luke Dashjr
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the standard MIT license.  See COPYING for more details.
+ */
+
 #ifndef BLKTEMPLATE_H
 #define BLKTEMPLATE_H
 
