@@ -1,3 +1,10 @@
+/*
+ * Copyright 2012-2013 Luke Dashjr
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the standard MIT license.  See COPYING for more details.
+ */
+
 #define _BSD_SOURCE
 
 #include <stdlib.h>

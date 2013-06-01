@@ -1,3 +1,9 @@
+/*
+ * Written by Luke Dashjr in 2012
+ *
+ * This data is released under the terms of the Creative Commons "CC0 1.0 Universal" license and/or copyright waiver.
+ */
+
 const char *blkmaker_test_input =
 "{"
 	"\"result\": {"
