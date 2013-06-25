@@ -164,7 +164,7 @@ void my_flip(void *data, size_t datasz) {
 
 const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t time_rcvd) {
 	if (tmpl->version)
-		return false;
+		return "Template already populated (combining not supported)";
 	
 	json_t *v;
 	const char *s;
