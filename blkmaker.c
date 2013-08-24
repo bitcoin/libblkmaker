@@ -41,16 +41,14 @@ bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz) {
 
 #define dblsha256 _blkmk_dblsha256
 
-uint64_t blkmk_init_generation2(blktemplate_t *tmpl, void *script, size_t scriptsz, bool *out_newcb) {
-	if (tmpl->cbtxn)
+uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const script, const size_t scriptsz, bool * const inout_newcb) {
+	if (tmpl->cbtxn && !(*inout_newcb && (tmpl->mutations & BMM_GENERATE)))
 	{
-		if (out_newcb)
-			*out_newcb = false;
+		*inout_newcb = false;
 		return 0;
 	}
 	
-	if (out_newcb)
-		*out_newcb = true;
+	*inout_newcb = true;
 	
 	size_t datasz = 62 + sizeof(blkheight_t) + scriptsz;
 	unsigned char *data = malloc(datasz);
@@ -101,11 +99,24 @@ uint64_t blkmk_init_generation2(blktemplate_t *tmpl, void *script, size_t script
 	txn->data = data;
 	txn->datasz = off;
 	
+	if (tmpl->cbtxn)
+	{
+		_blktxn_free(tmpl->cbtxn);
+		free(tmpl->cbtxn);
+	}
 	tmpl->cbtxn = txn;
 	
 	tmpl->mutations |= BMM_CBAPPEND | BMM_CBSET | BMM_GENERATE;
 	
 	return tmpl->cbvalue;
+}
+
+uint64_t blkmk_init_generation2(blktemplate_t *tmpl, void *script, size_t scriptsz, bool *out_newcb) {
+	bool tmp;
+	if (!out_newcb)
+		out_newcb = &tmp;
+	*out_newcb = false;
+	blkmk_init_generation3(tmpl, script, scriptsz, out_newcb);
 }
 
 uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scriptsz) {

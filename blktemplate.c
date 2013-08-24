@@ -93,12 +93,12 @@ bool blktmpl_get_submitold(blktemplate_t *tmpl) {
 	return tmpl->submitold;
 }
 
-static
-void blktxn_free(struct blktxn_t *bt) {
+void _blktxn_free(struct blktxn_t *bt) {
 	free(bt->data);
 	free(bt->hash);
 	free(bt->depends);
 }
+#define blktxn_free  _blktxn_free
 
 void blktmpl_free(blktemplate_t *tmpl) {
 	for (unsigned long i = 0; i < tmpl->txncount; ++i)

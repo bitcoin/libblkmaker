@@ -7,6 +7,9 @@
 // blkmaker.c
 extern bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz);
 
+// blktemplate.c
+extern void _blktxn_free(struct blktxn_t *);
+
 // hex.c
 extern void _blkmk_bin2hex(char *out, const void *data, size_t datasz);
 extern bool _blkmk_hex2bin(void *o, const char *x, size_t len);
