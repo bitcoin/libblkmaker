@@ -69,7 +69,7 @@ gbt_capabilities_t blktmpl_addcaps(const blktemplate_t *tmpl) {
 	// For now, it's a simple "filled" vs "not filled"
 	if (tmpl->version)
 		return 0;
-	return GBT_CBTXN | GBT_WORKID | BMM_TIMEINC | BMM_CBAPPEND;
+	return GBT_CBTXN | GBT_WORKID | BMM_TIMEINC | BMM_CBAPPEND | BMM_VERFORCE | BMM_VERDROP | BMAb_COINBASE | BMAb_TRUNCATE;
 }
 
 const struct blktmpl_longpoll_req *blktmpl_get_longpoll(blktemplate_t *tmpl) {
