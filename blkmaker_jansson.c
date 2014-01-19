@@ -284,7 +284,8 @@ static
 json_t *_blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce, bool foreign) {
 	unsigned char blk[80 + 8 + 1000000];
 	memcpy(blk, data, 76);
-	*(uint32_t*)(&blk[76]) = htonl(nonce);
+	nonce = htonl(nonce);
+	memcpy(&blk[76], &nonce, 4);
 	size_t offs = 80;
 	
 	if (foreign || (!(tmpl->mutations & BMAb_TRUNCATE && !dataid)))
