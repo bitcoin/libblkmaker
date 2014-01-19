@@ -283,7 +283,8 @@ char varintEncode(unsigned char *out, uint64_t n) {
 json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce) {
 	unsigned char blk[80 + 8 + 1000000];
 	memcpy(blk, data, 76);
-	*(uint32_t*)(&blk[76]) = htonl(nonce);
+	nonce = htonl(nonce);
+	memcpy(&blk[76], &nonce, 4);
 	size_t offs = 80;
 	
 	if (!(tmpl->mutations & BMAb_TRUNCATE && !dataid))
