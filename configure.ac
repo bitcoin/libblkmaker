@@ -12,6 +12,7 @@ AC_INIT(
 AC_CONFIG_AUX_DIR([.])
 AC_PREREQ([2.59])
 AM_INIT_AUTOMAKE([1.10 -Wall dist-bzip2])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_PROG_CC_C99
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
