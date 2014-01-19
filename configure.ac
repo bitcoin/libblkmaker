@@ -1,4 +1,4 @@
-dnl * Copyright 2012-2013 Luke Dashjr
+dnl * Copyright 2012-2014 Luke Dashjr
 dnl *
 dnl * This program is free software; you can redistribute it and/or modify it
 dnl * under the terms of the standard MIT license.  See COPYING for more details.
