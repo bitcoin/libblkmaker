@@ -242,12 +242,21 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	return true;
 }
 
-ssize_t blkmk_append_coinbase_safe(blktemplate_t *tmpl, const void *append, size_t appendsz) {
+ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * const append, const size_t appendsz, int extranoncesz, const bool merkle_only)
+{
 	if (!(tmpl->mutations & (BMM_CBAPPEND | BMM_CBSET)))
 		return -1;
 	
 	size_t datasz = tmpl->cbtxn->datasz;
-	size_t availsz = 100 - sizeof(unsigned int) - tmpl->cbtxn->data[cbScriptSigLen];
+	if (!merkle_only)
+	{
+		if (extranoncesz < sizeof(unsigned int))
+			extranoncesz = sizeof(unsigned int);
+		else
+		if (extranoncesz == sizeof(unsigned int))
+			++extranoncesz;
+	}
+	size_t availsz = 100 - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	if (appendsz > availsz)
 		return availsz;
 	
@@ -261,6 +270,10 @@ ssize_t blkmk_append_coinbase_safe(blktemplate_t *tmpl, const void *append, size
 	tmpl->cbtxn->datasz += appendsz;
 	
 	return availsz;
+}
+
+ssize_t blkmk_append_coinbase_safe(blktemplate_t * const tmpl, const void * const append, const size_t appendsz) {
+	return blkmk_append_coinbase_safe2(tmpl, append, appendsz, 0, false);
 }
 
 bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, size_t *offs) {
