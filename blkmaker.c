@@ -223,6 +223,18 @@ bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, siz
 	return true;
 }
 
+static
+void blkmk_set_times(blktemplate_t *tmpl, void * const out_hdrbuf, const time_t usetime, int16_t * const out_expire, const bool can_roll_ntime)
+{
+	double time_passed = difftime(usetime, tmpl->_time_rcvd);
+	blktime_t timehdr = tmpl->curtime + time_passed;
+	if (timehdr > tmpl->maxtime)
+		timehdr = tmpl->maxtime;
+	my_htole32(out_hdrbuf, timehdr);
+	if (out_expire)
+		*out_expire = tmpl->expires - time_passed - 1;
+}
+
 size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t usetime, int16_t *out_expire, unsigned int *out_dataid) {
 	if (!(blkmk_time_left(tmpl, usetime) && blkmk_work_left(tmpl) && tmpl->cbtxn))
 		return 0;
@@ -242,14 +254,8 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	if (!build_merkle_root(&cbuf[36], tmpl, cbtxndata, cbtxndatasz))
 		return 0;
 	
-	double time_passed = difftime(usetime, tmpl->_time_rcvd);
-	blktime_t timehdr = tmpl->curtime + time_passed;
-	if (timehdr > tmpl->maxtime)
-		timehdr = tmpl->maxtime;
-	my_htole32(&cbuf[68], timehdr);
+	blkmk_set_times(tmpl, &cbuf[68], usetime, out_expire, false);
 	memcpy(&cbuf[72], &tmpl->diffbits, 4);
-	if (out_expire)
-		*out_expire = tmpl->expires - time_passed - 1;
 	
 	// TEMPORARY HACK:
 	memcpy(tmpl->_mrklroot, &cbuf[36], 32);
