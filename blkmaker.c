@@ -213,7 +213,7 @@ bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigne
 static const int cbScriptSigLen = 4 + 1 + 36;
 
 static
-bool _blkmk_append_cb(blktemplate_t *tmpl, void *vout, const void *append, size_t appendsz) {
+bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void * const append, const size_t appendsz, size_t * const appended_at_offset) {
 	unsigned char *out = vout;
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
@@ -222,6 +222,8 @@ bool _blkmk_append_cb(blktemplate_t *tmpl, void *vout, const void *append, size_
 		return false;
 	
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
+	if (appended_at_offset)
+		*appended_at_offset = cbPostScriptSig;
 	unsigned char *outPostScriptSig = &out[cbPostScriptSig];
 	void *outExtranonce = (void*)outPostScriptSig;
 	outPostScriptSig += appendsz;
@@ -254,7 +256,7 @@ ssize_t blkmk_append_coinbase_safe(blktemplate_t *tmpl, const void *append, size
 		return -2;
 	
 	tmpl->cbtxn->data = newp;
-	if (!_blkmk_append_cb(tmpl, newp, append, appendsz))
+	if (!_blkmk_append_cb(tmpl, newp, append, appendsz, NULL))
 		return -3;
 	tmpl->cbtxn->datasz += appendsz;
 	
@@ -272,7 +274,7 @@ bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, siz
 		return true;
 	}
 	
-	if (!_blkmk_append_cb(tmpl, vout, &workid, sizeof(workid)))
+	if (!_blkmk_append_cb(tmpl, vout, &workid, sizeof(workid), NULL))
 		return false;
 	
 	*offs += insz + sizeof(workid);
@@ -289,7 +291,17 @@ void blkmk_set_times(blktemplate_t *tmpl, void * const out_hdrbuf, const time_t 
 		timehdr = tmpl->maxtime;
 	my_htole32(out_hdrbuf, timehdr);
 	if (out_expire)
+	{
 		*out_expire = tmpl->expires - time_passed - 1;
+		
+		if (can_roll_ntime)
+		{
+			// If the caller can roll the time header, we need to expire before reaching the maxtime
+			int16_t maxtime_expire_limit = (tmpl->maxtime - timehdr) + 1;
+			if (*out_expire > maxtime_expire_limit)
+				*out_expire = maxtime_expire_limit;
+		}
+	}
 }
 
 size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t usetime, int16_t *out_expire, unsigned int *out_dataid) {
@@ -318,6 +330,55 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	memcpy(tmpl->_mrklroot, &cbuf[36], 32);
 	
 	return 76;
+}
+
+bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t bufsz, const time_t usetime, int16_t * const out_expire, void * const _out_cbtxn, size_t * const out_cbtxnsz, size_t * const cbextranonceoffset, int * const out_branchcount, void * const _out_branches, size_t extranoncesz)
+{
+	if (!(true
+		&& blkmk_time_left(tmpl, usetime)
+		&& tmpl->cbtxn
+		&& blkmk_build_merkle_branches(tmpl)
+		&& bufsz >= 76
+	))
+		return false;
+	
+	if (extranoncesz == sizeof(unsigned int))
+		// Avoid overlapping with blkmk_get_data use
+		++extranoncesz;
+	
+	void ** const out_branches = _out_branches;
+	void ** const out_cbtxn = _out_cbtxn;
+	unsigned char *cbuf = buf;
+	
+	my_htole32(&cbuf[0], tmpl->version);
+	memcpy(&cbuf[4], &tmpl->prevblk, 32);
+	
+	*out_cbtxnsz = tmpl->cbtxn->datasz + extranoncesz;
+	*out_cbtxn = malloc(*out_cbtxnsz);
+	if (!*out_cbtxn)
+		return false;
+	unsigned char dummy[extranoncesz];
+	memset(dummy, 0, extranoncesz);
+	if (!_blkmk_append_cb(tmpl, *out_cbtxn, dummy, extranoncesz, cbextranonceoffset))
+	{
+		free(*out_cbtxn);
+		return false;
+	}
+	
+	blkmk_set_times(tmpl, &cbuf[68], usetime, out_expire, true);
+	memcpy(&cbuf[72], &tmpl->diffbits, 4);
+	
+	*out_branchcount = tmpl->_mrklbranchcount;
+	const size_t branches_bytesz = (sizeof(libblkmaker_hash_t) * tmpl->_mrklbranchcount);
+	*out_branches = malloc(branches_bytesz);
+	if (!*out_branches)
+	{
+		free(*out_cbtxn);
+		return false;
+	}
+	memcpy(*out_branches, tmpl->_mrklbranch, branches_bytesz);
+	
+	return true;
 }
 
 blktime_diff_t blkmk_time_left(const blktemplate_t *tmpl, time_t nowtime) {
