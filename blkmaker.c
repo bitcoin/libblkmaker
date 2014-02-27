@@ -124,28 +124,85 @@ uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scripts
 }
 
 static
-bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigned char *cbtxndata, size_t cbtxndatasz) {
+bool blkmk_hash_transactions(blktemplate_t * const tmpl)
+{
+	for (unsigned long i = 0; i < tmpl->txncount; ++i)
+	{
+		struct blktxn_t * const txn = &tmpl->txns[i];
+		if (txn->hash_)
+			continue;
+		txn->hash_ = malloc(sizeof(*txn->hash_));
+		if (!dblsha256(txn->hash_, txn->data, txn->datasz))
+		{
+			free(txn->hash_);
+			return false;
+		}
+	}
+	return true;
+}
+
+static
+bool blkmk_build_merkle_branches(blktemplate_t * const tmpl)
+{
+	int branchcount, i;
+	libblkmaker_hash_t *branches;
+	
+	if (tmpl->_mrklbranch)
+		return true;
+	
+	if (!blkmk_hash_transactions(tmpl))
+		return false;
+	
+	branchcount = blkmk_flsl(tmpl->txncount);
+	branches = malloc(branchcount * sizeof(*branches));
+	
 	size_t hashcount = tmpl->txncount + 1;
 	unsigned char hashes[(hashcount + 1) * 32];
 	
-	if (!dblsha256(&hashes[0], cbtxndata, cbtxndatasz))
-		return false;
-	for (unsigned long i = 0; i < tmpl->txncount; ++i)
-		if (!dblsha256(&hashes[32 * (i + 1)], tmpl->txns[i].data, tmpl->txns[i].datasz))
-			return false;
+	for (i = 0; i < tmpl->txncount; ++i)
+		memcpy(&hashes[0x20 * (i + 1)], tmpl->txns[i].hash_, 0x20);
 	
-	while (hashcount > 1)
+	for (i = 0; i < branchcount; ++i)
 	{
+		memcpy(&branches[i], &hashes[0x20], 0x20);
 		if (hashcount % 2)
 		{
 			memcpy(&hashes[32 * hashcount], &hashes[32 * (hashcount - 1)], 32);
 			++hashcount;
 		}
-		for (size_t i = 0; i < hashcount; i += 2)
+		for (size_t i = 2; i < hashcount; i += 2)
 			// This is where we overlap input and output, on the first pair
 			if (!dblsha256(&hashes[i / 2 * 32], &hashes[32 * i], 64))
+			{
+				free(branches);
 				return false;
+			}
 		hashcount /= 2;
+	}
+	
+	tmpl->_mrklbranch = branches;
+	tmpl->_mrklbranchcount = branchcount;
+	
+	return true;
+}
+
+static
+bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigned char *cbtxndata, size_t cbtxndatasz) {
+	int i;
+	libblkmaker_hash_t hashes[0x40];
+	
+	if (!blkmk_build_merkle_branches(tmpl))
+		return false;
+	
+	if (!dblsha256(&hashes[0], cbtxndata, cbtxndatasz))
+		return false;
+	
+	for (i = 0; i < tmpl->_mrklbranchcount; ++i)
+	{
+		memcpy(&hashes[1], tmpl->_mrklbranch[i], 0x20);
+		// This is where we overlap input and output, on the first pair
+		if (!dblsha256(&hashes[0], &hashes[0], 0x40))
+			return false;
 	}
 	
 	memcpy(mrklroot_out, &hashes[0], 32);

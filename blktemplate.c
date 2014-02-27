@@ -110,6 +110,7 @@ void blktmpl_free(blktemplate_t *tmpl) {
 		blktxn_free(tmpl->cbtxn);
 		free(tmpl->cbtxn);
 	}
+	free(tmpl->_mrklbranch);
 	// TODO: maybe free auxnames[0..n]? auxdata too
 	free(tmpl->auxnames);
 	free(tmpl->auxdata);

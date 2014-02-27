@@ -18,4 +18,16 @@ extern bool _blkmk_hex2bin(void *o, const char *x, size_t len);
 extern bool _blkmk_b58tobin(void *bin, size_t binsz, const char *b58, size_t b58sz);
 extern int _blkmk_b58check(void *bin, size_t binsz, const char *b58);
 
+// inline
+
+// NOTE: This must return 0 for 0
+static inline
+int blkmk_flsl(unsigned long n)
+{
+	int i;
+	for (i = 0; n; ++i)
+		n >>= 1;
+	return i;
+}
+
 #endif

@@ -120,6 +120,8 @@ typedef struct {
 	blknonce_t maxnonce;
 	
 	// TEMPORARY HACK
+	libblkmaker_hash_t *_mrklbranch;
+	int _mrklbranchcount;
 	libblkmaker_hash_t _mrklroot;
 	unsigned int next_dataid;
 } blktemplate_t;
