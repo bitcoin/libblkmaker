@@ -242,12 +242,14 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	if (!build_merkle_root(&cbuf[36], tmpl, cbtxndata, cbtxndatasz))
 		return 0;
 	
-	blktime_t timehdr = tmpl->curtime + difftime(usetime, tmpl->_time_rcvd);
+	double time_passed = difftime(usetime, tmpl->_time_rcvd);
+	blktime_t timehdr = tmpl->curtime + time_passed;
 	if (timehdr > tmpl->maxtime)
 		timehdr = tmpl->maxtime;
 	my_htole32(&cbuf[68], timehdr);
 	memcpy(&cbuf[72], &tmpl->diffbits, 4);
-	// TODO: set *out_expire if provided
+	if (out_expire)
+		*out_expire = tmpl->expires - time_passed - 1;
 	
 	// TEMPORARY HACK:
 	memcpy(tmpl->_mrklroot, &cbuf[36], 32);
