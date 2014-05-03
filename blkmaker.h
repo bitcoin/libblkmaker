@@ -19,7 +19,7 @@ extern ssize_t blkmk_append_coinbase_safe(blktemplate_t *, const void *append, s
 extern ssize_t blkmk_append_coinbase_safe2(blktemplate_t *, const void *append, size_t appendsz, int extranoncesz, bool merkle_only);
 extern bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, size_t *offs);
 extern size_t blkmk_get_data(blktemplate_t *, void *buf, size_t bufsz, time_t usetime, int16_t *out_expire, unsigned int *out_dataid);
-extern bool blkmk_get_mdata(blktemplate_t *, void *buf, size_t bufsz, time_t usetime, int16_t *out_expire, void *out_cbtxn, size_t *out_cbtxnsz, size_t *cbextranonceoffset, int *out_branchcount, void *out_branches, size_t extranoncesz);
+extern bool blkmk_get_mdata(blktemplate_t *, void *buf, size_t bufsz, time_t usetime, int16_t *out_expire, void *out_cbtxn, size_t *out_cbtxnsz, size_t *cbextranonceoffset, int *out_branchcount, void *out_branches, size_t extranoncesz, bool can_roll_ntime);
 extern blktime_diff_t blkmk_time_left(const blktemplate_t *, time_t nowtime);
 extern unsigned long blkmk_work_left(const blktemplate_t *);
 #define BLKMK_UNLIMITED_WORK_COUNT  ULONG_MAX

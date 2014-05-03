@@ -345,7 +345,7 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	return 76;
 }
 
-bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t bufsz, const time_t usetime, int16_t * const out_expire, void * const _out_cbtxn, size_t * const out_cbtxnsz, size_t * const cbextranonceoffset, int * const out_branchcount, void * const _out_branches, size_t extranoncesz)
+bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t bufsz, const time_t usetime, int16_t * const out_expire, void * const _out_cbtxn, size_t * const out_cbtxnsz, size_t * const cbextranonceoffset, int * const out_branchcount, void * const _out_branches, size_t extranoncesz, const bool can_roll_ntime)
 {
 	if (!(true
 		&& blkmk_time_left(tmpl, usetime)
@@ -378,7 +378,7 @@ bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t 
 		return false;
 	}
 	
-	blkmk_set_times(tmpl, &cbuf[68], usetime, out_expire, true);
+	blkmk_set_times(tmpl, &cbuf[68], usetime, out_expire, can_roll_ntime);
 	memcpy(&cbuf[72], &tmpl->diffbits, 4);
 	
 	*out_branchcount = tmpl->_mrklbranchcount;
