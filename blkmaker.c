@@ -124,28 +124,85 @@ uint64_t blkmk_init_generation(blktemplate_t *tmpl, void *script, size_t scripts
 }
 
 static
-bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigned char *cbtxndata, size_t cbtxndatasz) {
+bool blkmk_hash_transactions(blktemplate_t * const tmpl)
+{
+	for (unsigned long i = 0; i < tmpl->txncount; ++i)
+	{
+		struct blktxn_t * const txn = &tmpl->txns[i];
+		if (txn->hash_)
+			continue;
+		txn->hash_ = malloc(sizeof(*txn->hash_));
+		if (!dblsha256(txn->hash_, txn->data, txn->datasz))
+		{
+			free(txn->hash_);
+			return false;
+		}
+	}
+	return true;
+}
+
+static
+bool blkmk_build_merkle_branches(blktemplate_t * const tmpl)
+{
+	int branchcount, i;
+	libblkmaker_hash_t *branches;
+	
+	if (tmpl->_mrklbranch)
+		return true;
+	
+	if (!blkmk_hash_transactions(tmpl))
+		return false;
+	
+	branchcount = blkmk_flsl(tmpl->txncount);
+	branches = malloc(branchcount * sizeof(*branches));
+	
 	size_t hashcount = tmpl->txncount + 1;
 	unsigned char hashes[(hashcount + 1) * 32];
 	
-	if (!dblsha256(&hashes[0], cbtxndata, cbtxndatasz))
-		return false;
-	for (unsigned long i = 0; i < tmpl->txncount; ++i)
-		if (!dblsha256(&hashes[32 * (i + 1)], tmpl->txns[i].data, tmpl->txns[i].datasz))
-			return false;
+	for (i = 0; i < tmpl->txncount; ++i)
+		memcpy(&hashes[0x20 * (i + 1)], tmpl->txns[i].hash_, 0x20);
 	
-	while (hashcount > 1)
+	for (i = 0; i < branchcount; ++i)
 	{
+		memcpy(&branches[i], &hashes[0x20], 0x20);
 		if (hashcount % 2)
 		{
 			memcpy(&hashes[32 * hashcount], &hashes[32 * (hashcount - 1)], 32);
 			++hashcount;
 		}
-		for (size_t i = 0; i < hashcount; i += 2)
+		for (size_t i = 2; i < hashcount; i += 2)
 			// This is where we overlap input and output, on the first pair
 			if (!dblsha256(&hashes[i / 2 * 32], &hashes[32 * i], 64))
+			{
+				free(branches);
 				return false;
+			}
 		hashcount /= 2;
+	}
+	
+	tmpl->_mrklbranch = branches;
+	tmpl->_mrklbranchcount = branchcount;
+	
+	return true;
+}
+
+static
+bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigned char *cbtxndata, size_t cbtxndatasz) {
+	int i;
+	libblkmaker_hash_t hashes[0x40];
+	
+	if (!blkmk_build_merkle_branches(tmpl))
+		return false;
+	
+	if (!dblsha256(&hashes[0], cbtxndata, cbtxndatasz))
+		return false;
+	
+	for (i = 0; i < tmpl->_mrklbranchcount; ++i)
+	{
+		memcpy(&hashes[1], tmpl->_mrklbranch[i], 0x20);
+		// This is where we overlap input and output, on the first pair
+		if (!dblsha256(&hashes[0], &hashes[0], 0x40))
+			return false;
 	}
 	
 	memcpy(mrklroot_out, &hashes[0], 32);
@@ -156,7 +213,7 @@ bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigne
 static const int cbScriptSigLen = 4 + 1 + 36;
 
 static
-bool _blkmk_append_cb(blktemplate_t *tmpl, void *vout, const void *append, size_t appendsz) {
+bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void * const append, const size_t appendsz, size_t * const appended_at_offset) {
 	unsigned char *out = vout;
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
@@ -165,6 +222,8 @@ bool _blkmk_append_cb(blktemplate_t *tmpl, void *vout, const void *append, size_
 		return false;
 	
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
+	if (appended_at_offset)
+		*appended_at_offset = cbPostScriptSig;
 	unsigned char *outPostScriptSig = &out[cbPostScriptSig];
 	void *outExtranonce = (void*)outPostScriptSig;
 	outPostScriptSig += appendsz;
@@ -183,12 +242,21 @@ bool _blkmk_append_cb(blktemplate_t *tmpl, void *vout, const void *append, size_
 	return true;
 }
 
-ssize_t blkmk_append_coinbase_safe(blktemplate_t *tmpl, const void *append, size_t appendsz) {
+ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * const append, const size_t appendsz, int extranoncesz, const bool merkle_only)
+{
 	if (!(tmpl->mutations & (BMM_CBAPPEND | BMM_CBSET)))
 		return -1;
 	
 	size_t datasz = tmpl->cbtxn->datasz;
-	size_t availsz = 100 - sizeof(unsigned int) - tmpl->cbtxn->data[cbScriptSigLen];
+	if (!merkle_only)
+	{
+		if (extranoncesz < sizeof(unsigned int))
+			extranoncesz = sizeof(unsigned int);
+		else
+		if (extranoncesz == sizeof(unsigned int))
+			++extranoncesz;
+	}
+	size_t availsz = 100 - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	if (appendsz > availsz)
 		return availsz;
 	
@@ -197,11 +265,15 @@ ssize_t blkmk_append_coinbase_safe(blktemplate_t *tmpl, const void *append, size
 		return -2;
 	
 	tmpl->cbtxn->data = newp;
-	if (!_blkmk_append_cb(tmpl, newp, append, appendsz))
+	if (!_blkmk_append_cb(tmpl, newp, append, appendsz, NULL))
 		return -3;
 	tmpl->cbtxn->datasz += appendsz;
 	
 	return availsz;
+}
+
+ssize_t blkmk_append_coinbase_safe(blktemplate_t * const tmpl, const void * const append, const size_t appendsz) {
+	return blkmk_append_coinbase_safe2(tmpl, append, appendsz, 0, false);
 }
 
 bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, size_t *offs) {
@@ -215,7 +287,7 @@ bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, siz
 		return true;
 	}
 	
-	if (!_blkmk_append_cb(tmpl, vout, &workid, sizeof(workid)))
+	if (!_blkmk_append_cb(tmpl, vout, &workid, sizeof(workid), NULL))
 		return false;
 	
 	*offs += insz + sizeof(workid);
@@ -232,7 +304,17 @@ void blkmk_set_times(blktemplate_t *tmpl, void * const out_hdrbuf, const time_t 
 		timehdr = tmpl->maxtime;
 	my_htole32(out_hdrbuf, timehdr);
 	if (out_expire)
+	{
 		*out_expire = tmpl->expires - time_passed - 1;
+		
+		if (can_roll_ntime)
+		{
+			// If the caller can roll the time header, we need to expire before reaching the maxtime
+			int16_t maxtime_expire_limit = (tmpl->maxtime - timehdr) + 1;
+			if (*out_expire > maxtime_expire_limit)
+				*out_expire = maxtime_expire_limit;
+		}
+	}
 }
 
 size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t usetime, int16_t *out_expire, unsigned int *out_dataid) {
@@ -261,6 +343,55 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	memcpy(tmpl->_mrklroot, &cbuf[36], 32);
 	
 	return 76;
+}
+
+bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t bufsz, const time_t usetime, int16_t * const out_expire, void * const _out_cbtxn, size_t * const out_cbtxnsz, size_t * const cbextranonceoffset, int * const out_branchcount, void * const _out_branches, size_t extranoncesz, const bool can_roll_ntime)
+{
+	if (!(true
+		&& blkmk_time_left(tmpl, usetime)
+		&& tmpl->cbtxn
+		&& blkmk_build_merkle_branches(tmpl)
+		&& bufsz >= 76
+	))
+		return false;
+	
+	if (extranoncesz == sizeof(unsigned int))
+		// Avoid overlapping with blkmk_get_data use
+		++extranoncesz;
+	
+	void ** const out_branches = _out_branches;
+	void ** const out_cbtxn = _out_cbtxn;
+	unsigned char *cbuf = buf;
+	
+	my_htole32(&cbuf[0], tmpl->version);
+	memcpy(&cbuf[4], &tmpl->prevblk, 32);
+	
+	*out_cbtxnsz = tmpl->cbtxn->datasz + extranoncesz;
+	*out_cbtxn = malloc(*out_cbtxnsz);
+	if (!*out_cbtxn)
+		return false;
+	unsigned char dummy[extranoncesz];
+	memset(dummy, 0, extranoncesz);
+	if (!_blkmk_append_cb(tmpl, *out_cbtxn, dummy, extranoncesz, cbextranonceoffset))
+	{
+		free(*out_cbtxn);
+		return false;
+	}
+	
+	blkmk_set_times(tmpl, &cbuf[68], usetime, out_expire, can_roll_ntime);
+	memcpy(&cbuf[72], &tmpl->diffbits, 4);
+	
+	*out_branchcount = tmpl->_mrklbranchcount;
+	const size_t branches_bytesz = (sizeof(libblkmaker_hash_t) * tmpl->_mrklbranchcount);
+	*out_branches = malloc(branches_bytesz);
+	if (!*out_branches)
+	{
+		free(*out_cbtxn);
+		return false;
+	}
+	memcpy(*out_branches, tmpl->_mrklbranch, branches_bytesz);
+	
+	return true;
 }
 
 blktime_diff_t blkmk_time_left(const blktemplate_t *tmpl, time_t nowtime) {
