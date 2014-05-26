@@ -154,6 +154,13 @@ bool blkmk_build_merkle_branches(blktemplate_t * const tmpl)
 		return false;
 	
 	branchcount = blkmk_flsl(tmpl->txncount);
+	if (!branchcount)
+	{
+		tmpl->_mrklbranchcount = 0;
+		tmpl->_mrklbranch = NULL;
+		return true;
+	}
+	
 	branches = malloc(branchcount * sizeof(*branches));
 	
 	size_t hashcount = tmpl->txncount + 1;
