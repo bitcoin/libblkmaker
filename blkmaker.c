@@ -48,6 +48,32 @@ bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz) {
 #define dblsha256 _blkmk_dblsha256
 
 static
+size_t varintDecode(const uint8_t *p, size_t size, uint64_t *n)
+{
+	if (size > 8 && p[0] == 0xff)
+	{
+		*n = upk_u64le(p, 1);
+		return 9;
+	}
+	if (size > 4 && p[0] == 0xfe)
+	{
+		*n = upk_u32le(p, 1);
+		return 5;
+	}
+	if (size > 2 && p[0] == 0xfd)
+	{
+		*n = upk_u16le(p, 1);
+		return 3;
+	}
+	if (size > 0 && p[0] <= 0xfc)
+	{
+		*n = p[0];
+		return 1;
+	}
+	return 0;
+}
+
+static
 char varintEncode(unsigned char *out, uint64_t n) {
 	if (n < 0xfd)
 	{
