@@ -39,7 +39,7 @@ bool _blkmk_b58tobin(void *bin, size_t binsz, const char *b58, size_t b58sz) {
 	uint32_t c;
 	size_t i, j;
 	uint8_t bytesleft = binsz % 4;
-	uint32_t zeromask = ~((1 << ((bytesleft) * 8)) - 1);
+	uint32_t zeromask = ~((1 << ((bytesleft ?: 4) * 8)) - 1);
 	
 	if (!b58sz)
 		b58sz = strlen(b58);
