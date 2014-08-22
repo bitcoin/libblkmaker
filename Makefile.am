@@ -38,3 +38,7 @@ pkgconfig_DATA = \
 	libblkmaker_jansson-$(LIBBLKMAKER_API_VERSION).pc
 
 dist_noinst_SCRIPTS = autogen.sh
+dist_noinst_DATA = \
+	AUTHORS COPYING README \
+	example.c \
+	testinput.c
