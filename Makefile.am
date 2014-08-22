@@ -15,7 +15,12 @@ libblkmaker_@LIBBLKMAKER_API_VERSION@_la_SOURCES = \
 	hex.c \
 	private.h
 
-libblkmaker_@LIBBLKMAKER_API_VERSION@_la_LDFLAGS = -version-info $(LIBBLKMAKER_SO_VERSION) -no-undefined
+libblkmaker_@LIBBLKMAKER_API_VERSION@_la_CFLAGS = \
+	$(libbase58_CFLAGS)
+libblkmaker_@LIBBLKMAKER_API_VERSION@_la_LDFLAGS = \
+	$(libbase58_LIBS) \
+	-no-undefined \
+	-version-info $(LIBBLKMAKER_SO_VERSION)
 
 libblkmaker_includedir = $(includedir)/libblkmaker-$(LIBBLKMAKER_API_VERSION)
 libblkmaker_include_HEADERS = \
