@@ -39,7 +39,7 @@ bool _blkmk_b58tobin(void *bin, size_t binsz, const char *b58, size_t b58sz) {
 	uint32_t c;
 	size_t i, j;
 	uint8_t bytesleft = binsz % 4;
-	uint32_t zeromask = ~((1 << ((bytesleft) * 8)) - 1);
+	uint32_t zeromask = ~((1 << ((bytesleft ?: 4) * 8)) - 1);
 	
 	if (!b58sz)
 		b58sz = strlen(b58);
@@ -84,8 +84,10 @@ bool _blkmk_b58tobin(void *bin, size_t binsz, const char *b58, size_t b58sz) {
 	
 	for (; j < outisz; ++j)
 	{
-		*((uint32_t*)binu) = htonl(outi[j]);
-		binu += sizeof(uint32_t);
+		*(binu++) = outi[j] >> 0x18;
+		*(binu++) = outi[j] >> 0x10;
+		*(binu++) = outi[j] >>    8;
+		*(binu++) = outi[j];
 	}
 	return true;
 }
@@ -94,6 +96,8 @@ int _blkmk_b58check(void *bin, size_t binsz, const char *base58str) {
 	unsigned char buf[32];
 	unsigned char *binc = bin;
 	unsigned i;
+	if (binsz < 4)
+		return -4;
 	if (!_blkmk_dblsha256(buf, bin, binsz - 4))
 		return -2;
 	if (memcmp(&binc[binsz - 4], buf, 4))
