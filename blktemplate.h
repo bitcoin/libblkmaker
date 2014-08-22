@@ -12,6 +12,10 @@
 #include <stdint.h>
 #include <time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint32_t blkheight_t;
 typedef uint32_t libblkmaker_hash_t[8];
 typedef libblkmaker_hash_t blkhash_t;
@@ -131,5 +135,9 @@ extern gbt_capabilities_t blktmpl_addcaps(const blktemplate_t *);
 extern const struct blktmpl_longpoll_req *blktmpl_get_longpoll(blktemplate_t *);
 extern bool blktmpl_get_submitold(blktemplate_t *tmpl);
 extern void blktmpl_free(blktemplate_t *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
