@@ -11,7 +11,7 @@ AC_INIT(
 	[http://gitorious.org/bitcoin/libblkmaker])
 AC_CONFIG_AUX_DIR([.])
 AC_PREREQ([2.59])
-AM_INIT_AUTOMAKE([1.10 -Wall dist-bzip2 foreign])
+AM_INIT_AUTOMAKE([1.12 -Wall dist-xz foreign])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_PROG_CC_C99
