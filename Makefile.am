@@ -12,7 +12,8 @@ libblkmaker_@LIBBLKMAKER_API_VERSION@_la_SOURCES = \
 	base58.c \
 	blkmaker.c \
 	blktemplate.c \
-	hex.c
+	hex.c \
+	private.h
 
 libblkmaker_@LIBBLKMAKER_API_VERSION@_la_LDFLAGS = -version-info $(LIBBLKMAKER_SO_VERSION) -no-undefined
 
