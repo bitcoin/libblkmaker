@@ -330,6 +330,23 @@ void blkmk_set_times(blktemplate_t *tmpl, void * const out_hdrbuf, const time_t 
 	}
 }
 
+bool blkmk_sample_data_(blktemplate_t * const tmpl, uint8_t * const cbuf, const unsigned int dataid) {
+	my_htole32(&cbuf[0], tmpl->version);
+	memcpy(&cbuf[4], &tmpl->prevblk, 32);
+	
+	unsigned char cbtxndata[tmpl->cbtxn->datasz + sizeof(dataid)];
+	size_t cbtxndatasz = 0;
+	if (!_blkmk_extranonce(tmpl, cbtxndata, dataid, &cbtxndatasz))
+		return false;
+	if (!build_merkle_root(&cbuf[36], tmpl, cbtxndata, cbtxndatasz))
+		return false;
+	
+	my_htole32(&cbuf[0x44], tmpl->curtime);
+	memcpy(&cbuf[72], &tmpl->diffbits, 4);
+	
+	return true;
+}
+
 size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t usetime, int16_t *out_expire, unsigned int *out_dataid) {
 	if (!(blkmk_time_left(tmpl, usetime) && blkmk_work_left(tmpl) && tmpl->cbtxn))
 		return 0;
@@ -338,19 +355,10 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	
 	unsigned char *cbuf = buf;
 	
-	my_htole32(&cbuf[0], tmpl->version);
-	memcpy(&cbuf[4], &tmpl->prevblk, 32);
-	
-	unsigned char cbtxndata[tmpl->cbtxn->datasz + sizeof(*out_dataid)];
-	size_t cbtxndatasz = 0;
 	*out_dataid = tmpl->next_dataid++;
-	if (!_blkmk_extranonce(tmpl, cbtxndata, *out_dataid, &cbtxndatasz))
+	if (!blkmk_sample_data_(tmpl, cbuf, *out_dataid))
 		return 0;
-	if (!build_merkle_root(&cbuf[36], tmpl, cbtxndata, cbtxndatasz))
-		return 0;
-	
 	blkmk_set_times(tmpl, &cbuf[68], usetime, out_expire, false);
-	memcpy(&cbuf[72], &tmpl->diffbits, 4);
 	
 	// TEMPORARY HACK:
 	memcpy(tmpl->_mrklroot, &cbuf[36], 32);
