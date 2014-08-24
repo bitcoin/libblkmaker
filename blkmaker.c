@@ -13,6 +13,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifndef WIN32
+#include <arpa/inet.h>
+#else
+#include <winsock2.h>
+#endif
+
 #include <blkmaker.h>
 #include <blktemplate.h>
 
@@ -415,4 +421,62 @@ unsigned long blkmk_work_left(const blktemplate_t *tmpl) {
 		return 1;
 	return UINT_MAX - tmpl->next_dataid;
 	return BLKMK_UNLIMITED_WORK_COUNT;
+}
+
+static
+char varintEncode(unsigned char *out, uint64_t n) {
+	if (n < 0xfd)
+	{
+		out[0] = n;
+		return 1;
+	}
+	char L;
+	if (n <= 0xffff)
+	{
+		out[0] = '\xfd';
+		L = 3;
+	}
+	else
+	if (n <= 0xffffffff)
+	{
+		out[0] = '\xfe';
+		L = 5;
+	}
+	else
+	{
+		out[0] = '\xff';
+		L = 9;
+	}
+	for (unsigned char i = 1; i < L; ++i)
+		out[i] = (n >> ((i - 1) * 8)) % 256;
+	return L;
+}
+
+char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char * const data, const unsigned int dataid, blknonce_t nonce, const bool foreign)
+{
+	unsigned char blk[80 + 8 + 1000000];
+	memcpy(blk, data, 76);
+	nonce = htonl(nonce);
+	memcpy(&blk[76], &nonce, 4);
+	size_t offs = 80;
+	
+	if (foreign || (!(tmpl->mutations & BMAb_TRUNCATE && !dataid)))
+	{
+		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
+		
+		if (!_blkmk_extranonce(tmpl, &blk[offs], dataid, &offs))
+			return NULL;
+		
+		if (foreign || !(tmpl->mutations & BMAb_COINBASE))
+			for (unsigned long i = 0; i < tmpl->txncount; ++i)
+			{
+				memcpy(&blk[offs], tmpl->txns[i].data, tmpl->txns[i].datasz);
+				offs += tmpl->txns[i].datasz;
+			}
+	}
+	
+	char *blkhex = malloc((offs * 2) + 1);
+	_blkmk_bin2hex(blkhex, blk, offs);
+	
+	return blkhex;
 }

@@ -4,8 +4,11 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include <blktemplate.h>
+
 // blkmaker.c
 extern bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz);
+extern char *blkmk_assemble_submission_(blktemplate_t *, const unsigned char *data, unsigned int dataid, blknonce_t nonce, bool foreign);
 
 // blktemplate.c
 extern void _blktxn_free(struct blktxn_t *);

@@ -10,12 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef WIN32
-#include <arpa/inet.h>
-#else
-#include <winsock2.h>
-#endif
-
 #include <jansson.h>
 
 #include <blkmaker.h>
@@ -254,65 +248,16 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 }
 
 static
-char varintEncode(unsigned char *out, uint64_t n) {
-	if (n < 0xfd)
-	{
-		out[0] = n;
-		return 1;
-	}
-	char L;
-	if (n <= 0xffff)
-	{
-		out[0] = '\xfd';
-		L = 3;
-	}
-	else
-	if (n <= 0xffffffff)
-	{
-		out[0] = '\xfe';
-		L = 5;
-	}
-	else
-	{
-		out[0] = '\xff';
-		L = 9;
-	}
-	for (unsigned char i = 1; i < L; ++i)
-		out[i] = (n >> ((i - 1) * 8)) % 256;
-	return L;
-}
-
-#define my_bin2hex _blkmk_bin2hex
-
-static
 json_t *_blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce, bool foreign) {
-	unsigned char blk[80 + 8 + 1000000];
-	memcpy(blk, data, 76);
-	nonce = htonl(nonce);
-	memcpy(&blk[76], &nonce, 4);
-	size_t offs = 80;
-	
-	if (foreign || (!(tmpl->mutations & BMAb_TRUNCATE && !dataid)))
-	{
-		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
-		
-		if (!_blkmk_extranonce(tmpl, &blk[offs], dataid, &offs))
-			return NULL;
-		
-		if (foreign || !(tmpl->mutations & BMAb_COINBASE))
-			for (unsigned long i = 0; i < tmpl->txncount; ++i)
-			{
-				memcpy(&blk[offs], tmpl->txns[i].data, tmpl->txns[i].datasz);
-				offs += tmpl->txns[i].datasz;
-			}
-	}
-	
-	char blkhex[(offs * 2) + 1];
-	my_bin2hex(blkhex, blk, offs);
+	char *blkhex = blkmk_assemble_submission_(tmpl, data, dataid, nonce, foreign);
+	if (!blkhex)
+		return NULL;
 	
 	json_t *rv = json_array(), *ja, *jb;
 	jb = NULL;
-	if (!(ja = json_string(blkhex)))
+	ja = json_string(blkhex);
+	free(blkhex);
+	if (!ja)
 		goto err;
 	if (json_array_append_new(rv, ja))
 		goto err;
