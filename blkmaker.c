@@ -50,8 +50,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	
 	*inout_newcb = true;
 	
-	size_t datasz = 62 + sizeof(blkheight_t) + scriptsz;
-	unsigned char *data = malloc(datasz);
+	unsigned char *data = malloc(168 + scriptsz);
 	size_t off = 0;
 	if (!data)
 		return 0;
@@ -75,6 +74,27 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	}
 	data[off++] = h;
 	data[42] = data[41] - 1;
+	
+	if (tmpl->aux_count)
+	{
+		unsigned auxsz = off++;
+		data[auxsz] = 0;
+		++data[41];
+		
+		for (unsigned i = 0; i < tmpl->aux_count; ++i)
+		{
+			struct blkaux_t * const aux = &tmpl->auxs[i];
+			if ((size_t)data[41] + aux->datasz > 100)
+			{
+				free(data);
+				return 0;
+			}
+			memcpy(&data[off], tmpl->auxs[i].data, aux->datasz);
+			data[41] += aux->datasz;
+			data[auxsz] += aux->datasz;
+			off += aux->datasz;
+		}
+	}
 	
 	memcpy(&data[off],
 			"\xff\xff\xff\xff"  // sequence
