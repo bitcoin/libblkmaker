@@ -226,7 +226,26 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 			return s;
 	}
 	
-	// TODO: coinbaseaux
+	if ((v = json_object_get(json, "coinbaseaux")) && json_is_object(v))
+	{
+		tmpl->aux_count = json_object_size(v);
+		tmpl->auxs = malloc(tmpl->aux_count * sizeof(*tmpl->auxs));
+		unsigned i = 0;
+		for (void *iter = json_object_iter(v); iter; (iter = json_object_iter_next(v, iter)), ++i)
+		{
+			v2 = json_object_iter_value(iter);
+			s = json_string_value(v2);
+			if (!s)
+				continue;
+			size_t sz = strlen(s) / 2;
+			tmpl->auxs[i] = (struct blkaux_t){
+				.auxname = strdup(json_object_iter_key(iter)),
+				.data = malloc(sz),
+				.datasz = sz,
+			};
+			my_hex2bin(tmpl->auxs[i].data, s, sz);
+		}
+	}
 	
 	if ((v = json_object_get(json, "mutable")) && json_is_array(v))
 	{

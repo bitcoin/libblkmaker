@@ -40,6 +40,12 @@ struct blktxn_t {
 	txnhash_t *hash_;
 };
 
+struct blkaux_t {
+	char *auxname;
+	unsigned char *data;
+	uint8_t datasz;
+};
+
 // BIP 23: Long Polling
 struct blktmpl_longpoll_req {
 	char *id;
@@ -100,6 +106,8 @@ typedef struct {
 	
 	time_t _time_rcvd;
 	blktime_t curtime;
+	
+	// NOTE: These were never populated nor used, see aux_count and auxs
 	char auxcount;
 	char **auxnames;
 	unsigned char **auxdata;
@@ -128,6 +136,9 @@ typedef struct {
 	int _mrklbranchcount;
 	libblkmaker_hash_t _mrklroot;
 	unsigned int next_dataid;
+	
+	unsigned aux_count;
+	struct blkaux_t *auxs;
 } blktemplate_t;
 
 extern blktemplate_t *blktmpl_create();
