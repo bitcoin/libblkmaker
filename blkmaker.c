@@ -13,6 +13,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifndef WIN32
+#include <arpa/inet.h>
+#else
+#include <winsock2.h>
+#endif
+
 #include <blkmaker.h>
 #include <blktemplate.h>
 
@@ -347,6 +353,23 @@ void blkmk_set_times(blktemplate_t *tmpl, void * const out_hdrbuf, const time_t 
 	}
 }
 
+bool blkmk_sample_data_(blktemplate_t * const tmpl, uint8_t * const cbuf, const unsigned int dataid) {
+	my_htole32(&cbuf[0], tmpl->version);
+	memcpy(&cbuf[4], &tmpl->prevblk, 32);
+	
+	unsigned char cbtxndata[tmpl->cbtxn->datasz + sizeof(dataid)];
+	size_t cbtxndatasz = 0;
+	if (!_blkmk_extranonce(tmpl, cbtxndata, dataid, &cbtxndatasz))
+		return false;
+	if (!build_merkle_root(&cbuf[36], tmpl, cbtxndata, cbtxndatasz))
+		return false;
+	
+	my_htole32(&cbuf[0x44], tmpl->curtime);
+	memcpy(&cbuf[72], &tmpl->diffbits, 4);
+	
+	return true;
+}
+
 size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t usetime, int16_t *out_expire, unsigned int *out_dataid) {
 	if (!(blkmk_time_left(tmpl, usetime) && blkmk_work_left(tmpl) && tmpl->cbtxn))
 		return 0;
@@ -355,19 +378,10 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	
 	unsigned char *cbuf = buf;
 	
-	my_htole32(&cbuf[0], tmpl->version);
-	memcpy(&cbuf[4], &tmpl->prevblk, 32);
-	
-	unsigned char cbtxndata[tmpl->cbtxn->datasz + sizeof(*out_dataid)];
-	size_t cbtxndatasz = 0;
 	*out_dataid = tmpl->next_dataid++;
-	if (!_blkmk_extranonce(tmpl, cbtxndata, *out_dataid, &cbtxndatasz))
+	if (!blkmk_sample_data_(tmpl, cbuf, *out_dataid))
 		return 0;
-	if (!build_merkle_root(&cbuf[36], tmpl, cbtxndata, cbtxndatasz))
-		return 0;
-	
 	blkmk_set_times(tmpl, &cbuf[68], usetime, out_expire, false);
-	memcpy(&cbuf[72], &tmpl->diffbits, 4);
 	
 	// TEMPORARY HACK:
 	memcpy(tmpl->_mrklroot, &cbuf[36], 32);
@@ -438,4 +452,62 @@ unsigned long blkmk_work_left(const blktemplate_t *tmpl) {
 		return 1;
 	return UINT_MAX - tmpl->next_dataid;
 	return BLKMK_UNLIMITED_WORK_COUNT;
+}
+
+static
+char varintEncode(unsigned char *out, uint64_t n) {
+	if (n < 0xfd)
+	{
+		out[0] = n;
+		return 1;
+	}
+	char L;
+	if (n <= 0xffff)
+	{
+		out[0] = '\xfd';
+		L = 3;
+	}
+	else
+	if (n <= 0xffffffff)
+	{
+		out[0] = '\xfe';
+		L = 5;
+	}
+	else
+	{
+		out[0] = '\xff';
+		L = 9;
+	}
+	for (unsigned char i = 1; i < L; ++i)
+		out[i] = (n >> ((i - 1) * 8)) % 256;
+	return L;
+}
+
+char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char * const data, const unsigned int dataid, blknonce_t nonce, const bool foreign)
+{
+	unsigned char blk[80 + 8 + 1000000];
+	memcpy(blk, data, 76);
+	nonce = htonl(nonce);
+	memcpy(&blk[76], &nonce, 4);
+	size_t offs = 80;
+	
+	if (foreign || (!(tmpl->mutations & BMAb_TRUNCATE && !dataid)))
+	{
+		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
+		
+		if (!_blkmk_extranonce(tmpl, &blk[offs], dataid, &offs))
+			return NULL;
+		
+		if (foreign || !(tmpl->mutations & BMAb_COINBASE))
+			for (unsigned long i = 0; i < tmpl->txncount; ++i)
+			{
+				memcpy(&blk[offs], tmpl->txns[i].data, tmpl->txns[i].datasz);
+				offs += tmpl->txns[i].datasz;
+			}
+	}
+	
+	char *blkhex = malloc((offs * 2) + 1);
+	_blkmk_bin2hex(blkhex, blk, offs);
+	
+	return blkhex;
 }
