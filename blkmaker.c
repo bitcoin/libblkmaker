@@ -50,6 +50,9 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	
 	*inout_newcb = true;
 	
+	if (scriptsz >= 0xfd)
+		return 0;
+	
 	size_t datasz = 62 + sizeof(blkheight_t) + scriptsz;
 	unsigned char *data = malloc(datasz);
 	size_t off = 0;
