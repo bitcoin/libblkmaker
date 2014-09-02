@@ -146,12 +146,14 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 	if ((vv = json_object_get(txnj, "hash")) && json_is_string(vv))
 	{
 		hexdata = json_string_value(vv);
-		txn->hash = malloc(sizeof(*txn->hash));
-		if (!my_hex2bin(*txn->hash, hexdata, sizeof(*txn->hash)))
+		txn->hash = malloc(sizeof(*txn->hash) * 2);
+		if (!my_hex2bin(txn->hash, hexdata, sizeof(*txn->hash)))
 		{
 			free(txn->hash);
 			txn->hash = NULL;
 		}
+		else
+			blkmk_flip(&txn->hash[1], &txn->hash[0], sizeof(*txn->hash));
 	}
 	
 	// TODO: dependcount/depends, fee, required, sigops
@@ -159,19 +161,7 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 	return NULL;
 }
 
-static
-void my_flip(void *data, size_t datasz) {
-	char *cdata = (char*)data;
-	--datasz;
-	size_t hds = datasz / 2;
-	for (size_t i = 0; i <= hds; ++i)
-	{
-		int altp = datasz - i;
-		char c = cdata[i];
-		cdata[i] = cdata[altp];
-		cdata[altp] = c;
-	}
-}
+#define my_flip(data, datasz)  blkmk_flip(data, data, datasz)
 
 const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t time_rcvd) {
 	if (tmpl->version)

@@ -23,6 +23,7 @@ typedef uint32_t blknonce_t;
 struct blktxn_t {
 	unsigned char *data;
 	size_t datasz;
+	// NOTE: The byte order of hash is backward
 	txnhash_t *hash;
 	
 	signed long dependcount;

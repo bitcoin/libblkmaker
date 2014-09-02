@@ -30,4 +30,19 @@ int blkmk_flsl(unsigned long n)
 	return i;
 }
 
+static inline
+void blkmk_flip(void * const out, void * const data, size_t datasz) {
+	char * const cout = out;
+	char * const cdata = data;
+	--datasz;
+	size_t hds = datasz / 2;
+	for (size_t i = 0; i <= hds; ++i)
+	{
+		int altp = datasz - i;
+		char c = cdata[i];
+		cout[i] = cdata[altp];
+		cout[altp] = c;
+	}
+}
+
 #endif
