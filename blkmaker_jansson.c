@@ -21,7 +21,7 @@
 #	error "Jansson 2.0 with long long support required!"
 #endif
 
-json_t *blktmpl_request_jansson(gbt_capabilities_t caps, const char *lpid) {
+json_t *blktmpl_request_jansson(const uint32_t caps, const char * const lpid) {
 	json_t *req, *jcaps, *jstr, *reqf, *reqa;
 	if (!(req = json_object()))
 		return NULL;
@@ -266,7 +266,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	return NULL;
 }
 
-json_t *blktmpl_propose_jansson(blktemplate_t * const tmpl, const gbt_capabilities_t caps, const bool foreign) {
+json_t *blktmpl_propose_jansson(blktemplate_t * const tmpl, const uint32_t caps, const bool foreign) {
 	json_t *jreq = blktmpl_request_jansson(caps, NULL), *ja = NULL, *jparams;
 	if (!(jreq && json_is_object(jreq)))
 		goto err;

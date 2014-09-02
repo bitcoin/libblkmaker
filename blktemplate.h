@@ -123,7 +123,7 @@ typedef struct {
 	blkhash_t target;
 	
 	// BIP 23: Mutations
-	blkmutations_t mutations;
+	uint32_t mutations;
 	blktime_t maxtime;
 	blktime_diff_t maxtimeoff;
 	blktime_t mintime;
@@ -142,7 +142,7 @@ typedef struct {
 } blktemplate_t;
 
 extern blktemplate_t *blktmpl_create();
-extern gbt_capabilities_t blktmpl_addcaps(const blktemplate_t *);
+extern uint32_t blktmpl_addcaps(const blktemplate_t *);
 extern const struct blktmpl_longpoll_req *blktmpl_get_longpoll(blktemplate_t *);
 extern bool blktmpl_get_submitold(blktemplate_t *tmpl);
 extern void blktmpl_free(blktemplate_t *);

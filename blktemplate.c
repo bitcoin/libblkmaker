@@ -75,7 +75,7 @@ blktemplate_t *blktmpl_create() {
 	return tmpl;
 }
 
-gbt_capabilities_t blktmpl_addcaps(const blktemplate_t *tmpl) {
+uint32_t blktmpl_addcaps(const blktemplate_t *tmpl) {
 	// TODO: make this a lot more flexible for merging
 	// For now, it's a simple "filled" vs "not filled"
 	if (tmpl->version)
