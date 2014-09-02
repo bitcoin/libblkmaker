@@ -63,6 +63,7 @@ int main(int argc, char**argv) {
 	json_error_t jsone;
 	const char *err;
 	
+	b58_sha256_impl = my_sha256;
 	blkmk_sha256_impl = my_sha256;
 	
 	testb58();
