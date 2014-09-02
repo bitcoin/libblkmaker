@@ -158,14 +158,17 @@ bool blkmk_hash_transactions(blktemplate_t * const tmpl)
 	for (unsigned long i = 0; i < tmpl->txncount; ++i)
 	{
 		struct blktxn_t * const txn = &tmpl->txns[i];
-		if (txn->hash_)
+		if (txn->hash)
 			continue;
-		txn->hash_ = malloc(sizeof(*txn->hash_));
-		if (!dblsha256(txn->hash_, txn->data, txn->datasz))
+		txn->hash = malloc(sizeof(*txn->hash) * 2);
+		if (!dblsha256(&txn->hash[1], txn->data, txn->datasz))
 		{
-			free(txn->hash_);
+			free(txn->hash);
+			txn->hash = NULL;
 			return false;
 		}
+		else
+			blkmk_flip(&txn->hash[0], &txn->hash[1], sizeof(*txn->hash));
 	}
 	return true;
 }
@@ -196,7 +199,7 @@ bool blkmk_build_merkle_branches(blktemplate_t * const tmpl)
 	unsigned char hashes[(hashcount + 1) * 32];
 	
 	for (i = 0; i < tmpl->txncount; ++i)
-		memcpy(&hashes[0x20 * (i + 1)], tmpl->txns[i].hash_, 0x20);
+		memcpy(&hashes[0x20 * (i + 1)], &tmpl->txns[i].hash[1], 0x20);
 	
 	for (i = 0; i < branchcount; ++i)
 	{

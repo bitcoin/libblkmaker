@@ -27,7 +27,7 @@ typedef uint32_t blknonce_t;
 struct blktxn_t {
 	unsigned char *data;
 	size_t datasz;
-	// NOTE: The byte order of hash is backward; use hash_ instead
+	// NOTE: The byte order of hash is backward
 	txnhash_t *hash;
 	
 	signed long dependcount;
@@ -36,8 +36,6 @@ struct blktxn_t {
 	uint64_t fee;
 	bool required;
 	int16_t sigops;
-	
-	txnhash_t *hash_;
 };
 
 struct blkaux_t {
@@ -90,6 +88,7 @@ extern gbt_capabilities_t blktmpl_getcapability(const char *);
 
 typedef gbt_capabilities_t blkmutations_t;
 
+// WARNING: Do not allocate this (ABI is not guaranteed to remain fixed-size)
 typedef struct {
 	uint32_t version;
 	unsigned char diffbits[4];

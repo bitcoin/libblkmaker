@@ -96,7 +96,6 @@ bool blktmpl_get_submitold(blktemplate_t *tmpl) {
 void _blktxn_free(struct blktxn_t *bt) {
 	free(bt->data);
 	free(bt->hash);
-	free(bt->hash_);
 	free(bt->depends);
 }
 #define blktxn_free  _blktxn_free
