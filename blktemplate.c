@@ -117,9 +117,6 @@ void blktmpl_free(blktemplate_t *tmpl) {
 		free(tmpl->cbtxn);
 	}
 	free(tmpl->_mrklbranch);
-	// TODO: maybe free auxnames[0..n]? auxdata too
-	free(tmpl->auxnames);
-	free(tmpl->auxdata);
 	for (unsigned i = 0; i < tmpl->aux_count; ++i)
 		blkaux_clean(&tmpl->auxs[i]);
 	free(tmpl->auxs);

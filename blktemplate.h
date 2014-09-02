@@ -108,11 +108,6 @@ typedef struct {
 	time_t _time_rcvd;
 	blktime_t curtime;
 	
-	// NOTE: These were never populated nor used, see aux_count and auxs
-	char auxcount;
-	char **auxnames;
-	unsigned char **auxdata;
-	
 	char *workid;
 	
 	// BIP 22: Long Polling
@@ -135,7 +130,6 @@ typedef struct {
 	// TEMPORARY HACK
 	libblkmaker_hash_t *_mrklbranch;
 	int _mrklbranchcount;
-	libblkmaker_hash_t _mrklroot;
 	unsigned int next_dataid;
 	
 	unsigned aux_count;

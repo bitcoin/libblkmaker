@@ -383,9 +383,6 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 		return 0;
 	blkmk_set_times(tmpl, &cbuf[68], usetime, out_expire, false);
 	
-	// TEMPORARY HACK:
-	memcpy(tmpl->_mrklroot, &cbuf[36], 32);
-	
 	return 76;
 }
 
