@@ -77,6 +77,7 @@ extern gbt_capabilities_t blktmpl_getcapability(const char *);
 
 typedef gbt_capabilities_t blkmutations_t;
 
+// WARNING: Do not allocate this (ABI is not guaranteed to remain fixed-size)
 typedef struct {
 	uint32_t version;
 	unsigned char diffbits[4];
