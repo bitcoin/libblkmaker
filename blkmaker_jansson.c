@@ -152,8 +152,6 @@ static bool my_hex2bin(void *o, const char *x, size_t len) {
 		tmpl->skey = true;  \
 } while(0)
 
-static void my_flip(void *, size_t);
-
 static
 const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 	json_t *vv;
@@ -170,14 +168,12 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 	if ((vv = json_object_get(txnj, "hash")) && json_is_string(vv))
 	{
 		hexdata = json_string_value(vv);
-		txn->hash_ = malloc(sizeof(*txn->hash_));
-		if (!my_hex2bin(*txn->hash_, hexdata, sizeof(*txn->hash_)))
+		txn->hash = malloc(sizeof(*txn->hash));
+		if (!my_hex2bin(*txn->hash, hexdata, sizeof(*txn->hash)))
 		{
-			free(txn->hash_);
-			txn->hash_ = NULL;
+			free(txn->hash);
+			txn->hash = NULL;
 		}
-		else
-			my_flip(*txn->hash_, sizeof(*txn->hash_));
 	}
 	
 	// TODO: dependcount/depends, fee, required, sigops

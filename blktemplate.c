@@ -97,7 +97,6 @@ static
 void blktxn_free(struct blktxn_t *bt) {
 	free(bt->data);
 	free(bt->hash);
-	free(bt->hash_);
 	free(bt->depends);
 }
 
