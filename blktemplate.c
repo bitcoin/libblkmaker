@@ -121,6 +121,7 @@ void blktmpl_free(blktemplate_t *tmpl) {
 		blkaux_clean(&tmpl->auxs[i]);
 	free(tmpl->auxs);
 	free(tmpl->workid);
+	free(tmpl->target);
 	free(tmpl->lp.id);
 	free(tmpl->lp.uri);
 	free(tmpl);

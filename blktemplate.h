@@ -116,7 +116,7 @@ typedef struct {
 	
 	// BIP 23: Basic Pool Extensions
 	int16_t expires;
-	blkhash_t target;
+	blkhash_t *target;
 	
 	// BIP 23: Mutations
 	uint32_t mutations;

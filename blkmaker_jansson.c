@@ -241,6 +241,13 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		}
 	}
 	
+	if ((v = json_object_get(json, "target")) && json_is_string(v))
+	{
+		tmpl->target = malloc(sizeof(*tmpl->target));
+		if (!my_hex2bin(tmpl->target, json_string_value(v), sizeof(*tmpl->target)))
+			return "Error decoding 'target'";
+	}
+	
 	if ((v = json_object_get(json, "mutable")) && json_is_array(v))
 	{
 		for (size_t i = json_array_size(v); i--; )
