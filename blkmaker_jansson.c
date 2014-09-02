@@ -201,6 +201,10 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	GETSTR(workid, workid);
 	
 	GETNUM_O(expires);
+	GETNUM_O(maxtime);
+	GETNUM_O(maxtimeoff);
+	GETNUM_O(mintime);
+	GETNUM_O(mintimeoff);
 	
 	GETSTR(longpollid, lp.id);
 	GETSTR(longpolluri, lp.uri);
