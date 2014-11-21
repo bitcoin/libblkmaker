@@ -5,7 +5,7 @@ dnl * under the terms of the standard MIT license.  See COPYING for more details
 
 AC_INIT(
 	[libblkmaker],
-	[0.1],
+	[0.5.0],
 	[luke_libblkmaker@dashjr.org],
 	[libblkmaker],
 	[http://gitorious.org/bitcoin/libblkmaker])
