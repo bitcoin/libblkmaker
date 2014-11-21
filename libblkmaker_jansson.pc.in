@@ -9,3 +9,4 @@ Version: @PACKAGE_VERSION@
 URL: @PACKAGE_URL@
 Libs: -L${libdir} -lblkmaker-@LIBBLKMAKER_API_VERSION@ -lblkmaker_jansson-@LIBBLKMAKER_API_VERSION@
 Cflags: -I${includedir}/libblkmaker-@LIBBLKMAKER_API_VERSION@
+Requires.private: libbase58
