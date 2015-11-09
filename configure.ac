@@ -5,7 +5,7 @@ dnl * under the terms of the standard MIT license.  See COPYING for more details
 
 AC_INIT(
 	[libblkmaker],
-	[0.5.1],
+	[0.5.2],
 	[luke_libblkmaker@dashjr.org],
 	[libblkmaker],
 	[http://gitorious.org/bitcoin/libblkmaker])
@@ -19,7 +19,7 @@ m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 LT_INIT([disable-static])
 
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-AC_SUBST([LIBBLKMAKER_SO_VERSION], [6:1:0])
+AC_SUBST([LIBBLKMAKER_SO_VERSION], [6:2:0])
 AC_SUBST([LIBBLKMAKER_API_VERSION], [0.1])
 
 AC_CONFIG_FILES([Makefile
