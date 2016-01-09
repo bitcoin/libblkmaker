@@ -100,6 +100,7 @@ void _blktxn_free(struct blktxn_t *bt) {
 	free(bt->hash);
 	free(bt->hash_);
 	free(bt->depends);
+	free(bt->txid);
 }
 #define blktxn_free  _blktxn_free
 
@@ -119,6 +120,7 @@ void blktmpl_free(blktemplate_t *tmpl) {
 		free(tmpl->cbtxn);
 	}
 	free(tmpl->_mrklbranch);
+	free(tmpl->_witnessmrklroot);
 	for (unsigned i = 0; i < tmpl->aux_count; ++i)
 		blkaux_clean(&tmpl->auxs[i]);
 	free(tmpl->auxs);

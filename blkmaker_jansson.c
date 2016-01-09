@@ -152,6 +152,16 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 			my_flip(*txn->hash_, sizeof(*txn->hash_));
 	}
 	
+	if ((vv = json_object_get(txnj, "txid")) && json_is_string(vv)) {
+		hexdata = json_string_value(vv);
+		txn->txid = malloc(sizeof(*txn->txid));
+		if (!my_hex2bin(*txn->txid, hexdata, sizeof(*txn->txid))) {
+			return "Error decoding txid field";
+		} else {
+			my_flip(*txn->txid, sizeof(*txn->txid));
+		}
+	}
+	
 	// TODO: dependcount/depends, fee, required, sigops
 	
 	return NULL;

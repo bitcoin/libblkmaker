@@ -38,6 +38,7 @@ struct blktxn_t {
 	int16_t sigops;
 	
 	txnhash_t *hash_;
+	txnhash_t *txid;
 };
 
 struct blkaux_t {
@@ -134,6 +135,9 @@ typedef struct {
 	
 	unsigned aux_count;
 	struct blkaux_t *auxs;
+	
+	bool _calculated_witness;
+	libblkmaker_hash_t *_witnessmrklroot;
 } blktemplate_t;
 
 extern blktemplate_t *blktmpl_create();

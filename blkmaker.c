@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 Luke Dashjr
+ * Copyright 2012-2016 Luke Dashjr
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the standard MIT license.  See COPYING for more details.
@@ -72,6 +72,8 @@ size_t varintDecode(const uint8_t *p, size_t size, uint64_t *n)
 	}
 	return 0;
 }
+
+#define max_varint_size (9)
 
 static
 char varintEncode(unsigned char *out, uint64_t n) {
@@ -251,7 +253,11 @@ bool blkmk_build_merkle_branches(blktemplate_t * const tmpl)
 	unsigned char hashes[(hashcount + 1) * 32];
 	
 	for (i = 0; i < tmpl->txncount; ++i)
-		memcpy(&hashes[0x20 * (i + 1)], tmpl->txns[i].hash_, 0x20);
+	{
+		struct blktxn_t * const txn = &tmpl->txns[i];
+		txnhash_t * const txid = txn->txid ? txn->txid : txn->hash_;
+		memcpy(&hashes[0x20 * (i + 1)], txid, 0x20);
+	}
 	
 	for (i = 0; i < branchcount; ++i)
 	{
@@ -298,6 +304,69 @@ bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigne
 	
 	memcpy(mrklroot_out, &hashes[0], 32);
 	
+	return true;
+}
+
+static
+bool _blkmk_calculate_witness_mrklroot(blktemplate_t * const tmpl, libblkmaker_hash_t * const out, bool * const witness_needed) {
+	if (!blkmk_hash_transactions(tmpl))
+		return false;
+	
+	// Step 1: Populate hashes with the witness hashes for all transactions
+	size_t hashcount = tmpl->txncount + 1;
+	libblkmaker_hash_t hashes[hashcount + 1];  // +1 for when the last needs duplicating
+	memset(&hashes[0], 0, sizeof(hashes[0]));  // Gen tx gets a null entry
+	*witness_needed = false;
+	for (unsigned long i = 0; i < tmpl->txncount; ++i) {
+		struct blktxn_t * const txn = &tmpl->txns[i];
+		if (txn->txid && memcmp(txn->hash_, txn->txid, sizeof(*txn->txid))) {
+			*witness_needed = true;
+		}
+		memcpy(&hashes[i + 1], txn->hash_, sizeof(*hashes));
+	}
+	if (!*witness_needed)
+		return true;
+	
+	// Step 2: Reduce it to a merkle root
+	for ( ; hashcount > 1 ; hashcount /= 2) {
+		if (hashcount % 1 == 1) {
+			// Odd number, duplicate the last
+			memcpy(&hashes[hashcount], &hashes[hashcount - 1], sizeof(*hashes));
+			++hashcount;
+		}
+		for (size_t i = 0; i < hashcount; i += 2) {
+			// We overlap input and output here, on the first pair
+			if (!dblsha256(&hashes[i / 2], &hashes[i], sizeof(*hashes) * 2)) {
+				return false;
+			}
+		}
+	}
+	
+	memcpy(out, hashes, sizeof(*out));
+	return true;
+}
+
+static
+bool _blkmk_witness_mrklroot(blktemplate_t * const tmpl) {
+	if (tmpl->_calculated_witness) {
+		// Already calculated
+		return true;
+	}
+	tmpl->_witnessmrklroot = malloc(sizeof(libblkmaker_hash_t));
+	if (!tmpl->_witnessmrklroot) {
+		return false;
+	}
+	bool witness_needed;
+	if (!_blkmk_calculate_witness_mrklroot(tmpl, tmpl->_witnessmrklroot, &witness_needed)) {
+		free(tmpl->_witnessmrklroot);
+		tmpl->_witnessmrklroot = NULL;
+		return false;
+	}
+	if (!witness_needed) {
+		free(tmpl->_witnessmrklroot);
+		tmpl->_witnessmrklroot = NULL;
+	}
+	tmpl->_calculated_witness = true;
 	return true;
 }
 
@@ -386,6 +455,57 @@ bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, siz
 	return true;
 }
 
+static const unsigned char witness_magic[] = { 0x6a /* OP_RETURN */, /* FIXME */ };
+#define commitment_spk_size (sizeof(witness_magic) + sizeof(libblkmaker_hash_t) /* witness mrklroot */)
+#define commitment_txout_size (8 /* value */ + 1 /* scriptPubKey length */ + commitment_spk_size)
+static const size_t max_witness_commitment_insert = max_varint_size + commitment_txout_size - 1;
+
+static
+bool _blkmk_insert_witness_commitment(blktemplate_t * const tmpl, unsigned char * const gentxdata, size_t * const gentxsize) {
+	if (!_blkmk_witness_mrklroot(tmpl)) {
+		return false;
+	}
+	if (!tmpl->_witnessmrklroot) {
+		// No commitment needed
+		return true;
+	}
+	
+	if (cbScriptSigLen >= *gentxsize) {
+		return false;
+	}
+	const uint8_t coinbasesz = gentxdata[cbScriptSigLen];
+	const size_t offset_of_txout_count = cbScriptSigLen + coinbasesz + 4 /* nSequence */;
+	if (offset_of_txout_count >= *gentxsize) {
+		return false;
+	}
+	uint64_t txout_count;
+	const size_t in_txout_count_size = varintDecode(&gentxdata[offset_of_txout_count], *gentxsize - offset_of_txout_count, &txout_count);
+	if (!in_txout_count_size) {
+		return false;
+	}
+	++txout_count;
+	unsigned char insertbuf[max_varint_size + commitment_txout_size];
+	const size_t out_txout_count_size = varintEncode(insertbuf, txout_count);
+	unsigned char * const commitment_txout = &insertbuf[out_txout_count_size];
+	memset(commitment_txout, 0, 8);  // value
+	commitment_txout[8] = commitment_spk_size;
+	memcpy(&commitment_txout[9], witness_magic, sizeof(witness_magic));
+	memcpy(&commitment_txout[9 + sizeof(witness_magic)], tmpl->_witnessmrklroot, sizeof(*tmpl->_witnessmrklroot));
+	
+	// TODO: Put the new txout at the end to reduce movement
+	const size_t offset_of_txout_data = (offset_of_txout_count + in_txout_count_size);
+	const size_t new_offset_of_preexisting_txout_data = (offset_of_txout_count + out_txout_count_size + commitment_txout_size);
+	const size_t length_of_preexisting_txout_data_to_end_of_gentx = *gentxsize - offset_of_txout_data;
+	memmove(&gentxdata[new_offset_of_preexisting_txout_data], &gentxdata[offset_of_txout_data], length_of_preexisting_txout_data_to_end_of_gentx);
+	const size_t movement_delta = new_offset_of_preexisting_txout_data - offset_of_txout_data;
+	*gentxsize += movement_delta;
+	
+	const size_t insertbuf_len = out_txout_count_size + commitment_txout_size;
+	memcpy(&gentxdata[offset_of_txout_data], insertbuf, insertbuf_len);
+	
+	return true;
+}
+
 static
 void blkmk_set_times(blktemplate_t *tmpl, void * const out_hdrbuf, const time_t usetime, int16_t * const out_expire, const bool can_roll_ntime)
 {
@@ -412,10 +532,13 @@ bool blkmk_sample_data_(blktemplate_t * const tmpl, uint8_t * const cbuf, const 
 	my_htole32(&cbuf[0], tmpl->version);
 	memcpy(&cbuf[4], &tmpl->prevblk, 32);
 	
-	unsigned char cbtxndata[tmpl->cbtxn->datasz + sizeof(dataid)];
+	unsigned char cbtxndata[tmpl->cbtxn->datasz + sizeof(dataid) + max_witness_commitment_insert];
 	size_t cbtxndatasz = 0;
 	if (!_blkmk_extranonce(tmpl, cbtxndata, dataid, &cbtxndatasz))
 		return false;
+	if (!_blkmk_insert_witness_commitment(tmpl, cbtxndata, &cbtxndatasz)) {
+		return false;
+	}
 	if (!build_merkle_root(&cbuf[36], tmpl, cbtxndata, cbtxndatasz))
 		return false;
 	
@@ -463,13 +586,17 @@ bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t 
 	memcpy(&cbuf[4], &tmpl->prevblk, 32);
 	
 	*out_cbtxnsz = tmpl->cbtxn->datasz + extranoncesz;
-	*out_cbtxn = malloc(*out_cbtxnsz);
+	*out_cbtxn = malloc(*out_cbtxnsz + max_witness_commitment_insert);
 	if (!*out_cbtxn)
 		return false;
 	unsigned char dummy[extranoncesz];
 	memset(dummy, 0, extranoncesz);
 	if (!_blkmk_append_cb(tmpl, *out_cbtxn, dummy, extranoncesz, cbextranonceoffset))
 	{
+		free(*out_cbtxn);
+		return false;
+	}
+	if (!_blkmk_insert_witness_commitment(tmpl, *out_cbtxn, out_cbtxnsz)) {
 		free(*out_cbtxn);
 		return false;
 	}
@@ -518,8 +645,13 @@ char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char
 	{
 		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
 		
-		if (!_blkmk_extranonce(tmpl, &blk[offs], dataid, &offs))
+		size_t cbtxnlen = 0;
+		if (!_blkmk_extranonce(tmpl, &blk[offs], dataid, &cbtxnlen))
 			return NULL;
+		if (!_blkmk_insert_witness_commitment(tmpl, &blk[offs], &cbtxnlen)) {
+			return NULL;
+		}
+		offs += cbtxnlen;
 		
 		if (foreign || !(tmpl->mutations & BMAb_COINBASE))
 			for (unsigned long i = 0; i < tmpl->txncount; ++i)
