@@ -47,6 +47,35 @@ bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz) {
 
 #define dblsha256 _blkmk_dblsha256
 
+static
+char varintEncode(unsigned char *out, uint64_t n) {
+	if (n < 0xfd)
+	{
+		out[0] = n;
+		return 1;
+	}
+	char L;
+	if (n <= 0xffff)
+	{
+		out[0] = '\xfd';
+		L = 3;
+	}
+	else
+	if (n <= 0xffffffff)
+	{
+		out[0] = '\xfe';
+		L = 5;
+	}
+	else
+	{
+		out[0] = '\xff';
+		L = 9;
+	}
+	for (unsigned char i = 1; i < L; ++i)
+		out[i] = (n >> ((i - 1) * 8)) % 256;
+	return L;
+}
+
 uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const script, const size_t scriptsz, bool * const inout_newcb) {
 	if (tmpl->cbtxn && !(*inout_newcb && (tmpl->mutations & BMM_GENERATE)))
 	{
@@ -449,35 +478,6 @@ unsigned long blkmk_work_left(const blktemplate_t *tmpl) {
 		return 1;
 	return UINT_MAX - tmpl->next_dataid;
 	return BLKMK_UNLIMITED_WORK_COUNT;
-}
-
-static
-char varintEncode(unsigned char *out, uint64_t n) {
-	if (n < 0xfd)
-	{
-		out[0] = n;
-		return 1;
-	}
-	char L;
-	if (n <= 0xffff)
-	{
-		out[0] = '\xfd';
-		L = 3;
-	}
-	else
-	if (n <= 0xffffffff)
-	{
-		out[0] = '\xfe';
-		L = 5;
-	}
-	else
-	{
-		out[0] = '\xff';
-		L = 9;
-	}
-	for (unsigned char i = 1; i < L; ++i)
-		out[i] = (n >> ((i - 1) * 8)) % 256;
-	return L;
 }
 
 char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char * const data, const unsigned int dataid, blknonce_t nonce, const bool foreign)
