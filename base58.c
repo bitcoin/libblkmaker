@@ -46,6 +46,7 @@ size_t blkmk_address_to_script(void *out, size_t outsz, const char *addr) {
 	addrver = b58check(addrbin, sizeof(addrbin), addr, b58sz);
 	switch (addrver) {
 		case   0:  // Bitcoin pubkey hash
+		case  30:  // Segnet  pubkey hash
 		case 111:  // Testnet pubkey hash
 			if (outsz < (rv = 25))
 				return rv;
@@ -57,6 +58,7 @@ size_t blkmk_address_to_script(void *out, size_t outsz, const char *addr) {
 			cout[24] = 0xac;  // OP_CHECKSIG
 			return rv;
 		case   5:  // Bitcoin script hash
+		case  50:  // Segnet  script hash
 		case 196:  // Testnet script hash
 			if (outsz < (rv = 23))
 				return rv;

@@ -455,7 +455,7 @@ bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, siz
 	return true;
 }
 
-static const unsigned char witness_magic[] = { 0x6a /* OP_RETURN */, /* FIXME */ };
+static const unsigned char witness_magic[] = { 0x6a /* OP_RETURN */, 0x24, 0xaa, 0x21, 0xa9, 0xed };
 #define commitment_spk_size (sizeof(witness_magic) + sizeof(libblkmaker_hash_t) /* witness mrklroot */)
 #define commitment_txout_size (8 /* value */ + 1 /* scriptPubKey length */ + commitment_spk_size)
 static const size_t max_witness_commitment_insert = max_varint_size + commitment_txout_size - 1;
