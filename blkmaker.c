@@ -474,7 +474,7 @@ bool _blkmk_insert_witness_commitment(blktemplate_t * const tmpl, unsigned char 
 		return false;
 	}
 	const uint8_t coinbasesz = gentxdata[cbScriptSigLen];
-	const size_t offset_of_txout_count = cbScriptSigLen + coinbasesz + 4 /* nSequence */;
+	const size_t offset_of_txout_count = cbScriptSigLen + coinbasesz + sizeof(coinbasesz) + 4 /* nSequence */;
 	if (offset_of_txout_count >= *gentxsize) {
 		return false;
 	}
@@ -501,7 +501,7 @@ bool _blkmk_insert_witness_commitment(blktemplate_t * const tmpl, unsigned char 
 	*gentxsize += movement_delta;
 	
 	const size_t insertbuf_len = out_txout_count_size + commitment_txout_size;
-	memcpy(&gentxdata[offset_of_txout_data], insertbuf, insertbuf_len);
+	memcpy(&gentxdata[offset_of_txout_count], insertbuf, insertbuf_len);
 	
 	return true;
 }
