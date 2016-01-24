@@ -459,6 +459,7 @@ static const unsigned char witness_magic[] = { 0x6a /* OP_RETURN */, 0x24, 0xaa,
 #define commitment_spk_size (sizeof(witness_magic) + sizeof(libblkmaker_hash_t) /* witness mrklroot */)
 #define commitment_txout_size (8 /* value */ + 1 /* scriptPubKey length */ + commitment_spk_size)
 static const size_t max_witness_commitment_insert = max_varint_size + commitment_txout_size - 1;
+static const libblkmaker_hash_t witness_nonce = { 0 };
 
 static
 bool _blkmk_insert_witness_commitment(blktemplate_t * const tmpl, unsigned char * const gentxdata, size_t * const gentxsize) {
@@ -469,6 +470,13 @@ bool _blkmk_insert_witness_commitment(blktemplate_t * const tmpl, unsigned char 
 		// No commitment needed
 		return true;
 	}
+
+	libblkmaker_hash_t merkle_with_nonce[2];
+	libblkmaker_hash_t commitment;
+	memcpy(&merkle_with_nonce[0], tmpl->_witnessmrklroot, sizeof(*tmpl->_witnessmrklroot));
+	memcpy(&merkle_with_nonce[1], &witness_nonce, sizeof(witness_nonce));
+	if(!dblsha256(&commitment, &merkle_with_nonce[0], sizeof(merkle_with_nonce)))
+		return false;
 	
 	if (cbScriptSigLen >= *gentxsize) {
 		return false;
@@ -490,7 +498,7 @@ bool _blkmk_insert_witness_commitment(blktemplate_t * const tmpl, unsigned char 
 	memset(commitment_txout, 0, 8);  // value
 	commitment_txout[8] = commitment_spk_size;
 	memcpy(&commitment_txout[9], witness_magic, sizeof(witness_magic));
-	memcpy(&commitment_txout[9 + sizeof(witness_magic)], tmpl->_witnessmrklroot, sizeof(*tmpl->_witnessmrklroot));
+	memcpy(&commitment_txout[9 + sizeof(witness_magic)], &commitment, sizeof(commitment));
 	
 	// TODO: Put the new txout at the end to reduce movement
 	const size_t offset_of_txout_data = (offset_of_txout_count + in_txout_count_size);
