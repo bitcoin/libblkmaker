@@ -329,7 +329,7 @@ bool _blkmk_calculate_witness_mrklroot(blktemplate_t * const tmpl, libblkmaker_h
 	
 	// Step 2: Reduce it to a merkle root
 	for ( ; hashcount > 1 ; hashcount /= 2) {
-		if (hashcount % 1 == 1) {
+		if (hashcount % 2 == 1) {
 			// Odd number, duplicate the last
 			memcpy(&hashes[hashcount], &hashes[hashcount - 1], sizeof(*hashes));
 			++hashcount;
