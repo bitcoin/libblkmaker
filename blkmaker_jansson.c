@@ -311,7 +311,7 @@ json_t *blktmpl_propose_jansson(blktemplate_t * const tmpl, const uint32_t caps,
 	uint8_t sdata[0x4c];
 	if (!blkmk_sample_data_(tmpl, sdata, dataid))
 		goto err;
-	char *blkhex = blkmk_assemble_submission_(tmpl, sdata, dataid, 0, foreign);
+	char *blkhex = blkmk_assemble_submission2_(tmpl, sdata, NULL, 0, dataid, 0, foreign);
 	if (!blkhex)
 		goto err;
 	if (!(ja = json_string(blkhex)))
@@ -328,8 +328,8 @@ err:
 }
 
 static
-json_t *_blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce, bool foreign) {
-	char *blkhex = blkmk_assemble_submission_(tmpl, data, dataid, nonce, foreign);
+json_t *_blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, const void * const extranonce, const size_t extranoncesz, unsigned int dataid, blknonce_t nonce, bool foreign) {
+	char *blkhex = blkmk_assemble_submission2_(tmpl, data, extranonce, extranoncesz, dataid, nonce, foreign);
 	if (!blkhex)
 		return NULL;
 	
@@ -378,9 +378,9 @@ err:
 }
 
 json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce) {
-	return _blkmk_submit_jansson(tmpl, data, dataid, nonce, false);
+	return _blkmk_submit_jansson(tmpl, data, NULL, 0, dataid, nonce, false);
 }
 
 json_t *blkmk_submit_foreign_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce) {
-	return _blkmk_submit_jansson(tmpl, data, dataid, nonce, true);
+	return _blkmk_submit_jansson(tmpl, data, NULL, 0, dataid, nonce, true);
 }

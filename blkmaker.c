@@ -574,8 +574,3 @@ char *blkmk_assemble_submission2_(blktemplate_t * const tmpl, const unsigned cha
 	}
 	return blkmk_assemble_submission2_internal(tmpl, data, extranonce, extranoncesz, nonce, foreign);
 }
-
-char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char * const data, const unsigned int dataid, const blknonce_t nonce, const bool foreign)
-{
-	return blkmk_assemble_submission2_(tmpl, data, NULL, 0, dataid, nonce, foreign);
-}
