@@ -95,7 +95,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 		for (unsigned i = 0; i < tmpl->aux_count; ++i)
 		{
 			struct blkaux_t * const aux = &tmpl->auxs[i];
-			if ((size_t)data[41] + aux->datasz > 100)
+			if ((size_t)data[41] + aux->datasz > libblkmaker_coinbase_size_limit)
 			{
 				free(data);
 				return 0;
@@ -256,7 +256,7 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
 	
-	if (in[cbScriptSigLen] > 100 - appendsz)
+	if (in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz)
 		return false;
 	
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
@@ -294,7 +294,7 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 		if (extranoncesz == sizeof(unsigned int))
 			++extranoncesz;
 	}
-	size_t availsz = 100 - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
+	size_t availsz = libblkmaker_coinbase_size_limit - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	if (appendsz > availsz)
 		return availsz;
 	
