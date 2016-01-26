@@ -501,9 +501,9 @@ char varintEncode(unsigned char *out, uint64_t n) {
 	return L;
 }
 
-char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char * const data, const unsigned int dataid, blknonce_t nonce, const bool foreign)
+static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, const unsigned char * const data, const void * const extranonce, const size_t extranoncesz, blknonce_t nonce, const bool foreign)
 {
-	const bool incl_gentxn = (foreign || (!(tmpl->mutations & BMAb_TRUNCATE && !dataid)));
+	const bool incl_gentxn = (foreign || (!(tmpl->mutations & BMAb_TRUNCATE && !extranoncesz)));
 	const bool incl_alltxn = (foreign || !(tmpl->mutations & BMAb_COINBASE));
 	
 	size_t blkbuf_sz = libblkmaker_blkheader_size;
@@ -527,10 +527,17 @@ char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char
 	if (incl_gentxn) {
 		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
 		
-		if (!_blkmk_extranonce(tmpl, &blk[offs], dataid, &offs))
-		{
-			free(blk);
-			return NULL;
+		// Essentially _blkmk_extranonce
+		if (extranoncesz) {
+			if (!_blkmk_append_cb(tmpl, &blk[offs], extranonce, extranoncesz, NULL)) {
+				free(blk);
+				return NULL;
+			}
+			
+			offs += tmpl->cbtxn->datasz + extranoncesz;
+		} else {
+			memcpy(&blk[offs], tmpl->cbtxn->data, tmpl->cbtxn->datasz);
+			offs += tmpl->cbtxn->datasz;
 		}
 		
 		if (incl_alltxn) {
@@ -547,4 +554,23 @@ char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char
 	free(blk);
 	
 	return blkhex;
+}
+
+char *blkmk_assemble_submission2_(blktemplate_t * const tmpl, const unsigned char * const data, const void * const extranonce, const size_t extranoncesz, const blknonce_t nonce, const bool foreign)
+{
+	if (extranoncesz == sizeof(unsigned int)) {
+		// Avoid overlapping with blkmk_get_data use
+		unsigned char extended_extranonce[extranoncesz + 1];
+		memcpy(extended_extranonce, extranonce, extranoncesz);
+		extended_extranonce[extranoncesz] = 0;
+		return blkmk_assemble_submission2_internal(tmpl, data, extended_extranonce, extranoncesz + 1, nonce, foreign);
+	}
+	return blkmk_assemble_submission2_internal(tmpl, data, extranonce, extranoncesz, nonce, foreign);
+}
+
+char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char * const data, const unsigned int dataid, const blknonce_t nonce, const bool foreign)
+{
+	const void * const extranonce = &dataid;
+	const size_t extranoncesz = dataid ? sizeof(dataid) : 0;
+	return blkmk_assemble_submission2_internal(tmpl, data, extranonce, extranoncesz, nonce, foreign);
 }
