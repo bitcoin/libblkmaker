@@ -384,3 +384,7 @@ json_t *blkmk_submit_jansson(blktemplate_t *tmpl, const unsigned char *data, uns
 json_t *blkmk_submit_foreign_jansson(blktemplate_t *tmpl, const unsigned char *data, unsigned int dataid, blknonce_t nonce) {
 	return _blkmk_submit_jansson(tmpl, data, NULL, 0, dataid, nonce, true);
 }
+
+json_t *blkmk_submitm_jansson(blktemplate_t * const tmpl, const unsigned char *data, const void * const extranonce, const size_t extranoncesz, const blknonce_t nonce, const bool foreign) {
+	return _blkmk_submit_jansson(tmpl, data, extranonce, extranoncesz, 0, nonce, foreign);
+}
