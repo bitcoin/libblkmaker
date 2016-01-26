@@ -213,9 +213,15 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	v = json_object_get(json, "transactions");
 	size_t txns = tmpl->txncount = json_array_size(v);
 	tmpl->txns = calloc(txns, sizeof(*tmpl->txns));
+	tmpl->txns_datasz = 0;
 	for (size_t i = 0; i < txns; ++i)
-		if ((s = parse_txn(&tmpl->txns[i], json_array_get(v, i))))
+	{
+		struct blktxn_t * const txn = &tmpl->txns[i];
+		if ((s = parse_txn(txn, json_array_get(v, i)))) {
 			return s;
+		}
+		tmpl->txns_datasz += txn->datasz;
+	}
 	
 	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
 	{

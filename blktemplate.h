@@ -134,6 +134,8 @@ typedef struct {
 	
 	unsigned aux_count;
 	struct blkaux_t *auxs;
+	
+	unsigned long txns_datasz;
 } blktemplate_t;
 
 extern blktemplate_t *blktmpl_create();
