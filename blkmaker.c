@@ -120,6 +120,11 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	memset(&data[off], 0, 4);  // lock time
 	off += 4;
 	
+	if (tmpl->txns_datasz + off > tmpl->sizelimit) {
+		free(data);
+		return 0;
+	}
+	
 	struct blktxn_t *txn = calloc(1, sizeof(*tmpl->cbtxn));
 	if (!txn)
 	{
@@ -259,6 +264,10 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	if (in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz)
 		return false;
 	
+	if (tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
+		return false;
+	}
+	
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
 	if (appended_at_offset)
 		*appended_at_offset = cbPostScriptSig;
@@ -295,6 +304,16 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 			++extranoncesz;
 	}
 	size_t availsz = libblkmaker_coinbase_size_limit - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
+	{
+		const size_t current_blocksize = tmpl->cbtxn->datasz + tmpl->txns_datasz;
+		if (current_blocksize > tmpl->sizelimit) {
+			return false;
+		}
+		const size_t availsz2 = tmpl->sizelimit - current_blocksize;
+		if (availsz2 < availsz) {
+			availsz = availsz2;
+		}
+	}
 	if (appendsz > availsz)
 		return availsz;
 	
