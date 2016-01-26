@@ -295,13 +295,13 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 		return -1;
 	
 	size_t datasz = tmpl->cbtxn->datasz;
+	if (extranoncesz == sizeof(unsigned int)) {
+		++extranoncesz;
+	} else
 	if (!merkle_only)
 	{
 		if (extranoncesz < sizeof(unsigned int))
 			extranoncesz = sizeof(unsigned int);
-		else
-		if (extranoncesz == sizeof(unsigned int))
-			++extranoncesz;
 	}
 	size_t availsz = libblkmaker_coinbase_size_limit - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	{
