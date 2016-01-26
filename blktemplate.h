@@ -24,6 +24,8 @@ typedef uint32_t blktime_t;
 typedef int16_t blktime_diff_t;
 typedef uint32_t blknonce_t;
 
+#define libblkmaker_blkheader_size (80)
+
 struct blktxn_t {
 	unsigned char *data;
 	size_t datasz;
