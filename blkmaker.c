@@ -47,6 +47,8 @@ bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz) {
 
 #define dblsha256 _blkmk_dblsha256
 
+#define max_varint_size (9)
+
 uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const script, const size_t scriptsz, bool * const inout_newcb) {
 	if (tmpl->cbtxn && !(*inout_newcb && (tmpl->mutations & BMM_GENERATE)))
 	{
@@ -93,7 +95,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 		for (unsigned i = 0; i < tmpl->aux_count; ++i)
 		{
 			struct blkaux_t * const aux = &tmpl->auxs[i];
-			if ((size_t)data[41] + aux->datasz > 100)
+			if ((size_t)data[41] + aux->datasz > libblkmaker_coinbase_size_limit)
 			{
 				free(data);
 				return 0;
@@ -117,6 +119,11 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	off += scriptsz;
 	memset(&data[off], 0, 4);  // lock time
 	off += 4;
+	
+	if (tmpl->txns_datasz + off > tmpl->sizelimit) {
+		free(data);
+		return 0;
+	}
 	
 	struct blktxn_t *txn = calloc(1, sizeof(*tmpl->cbtxn));
 	if (!txn)
@@ -254,8 +261,12 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
 	
-	if (in[cbScriptSigLen] > 100 - appendsz)
+	if (in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz)
 		return false;
+	
+	if (tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
+		return false;
+	}
 	
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
 	if (appended_at_offset)
@@ -284,15 +295,25 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 		return -1;
 	
 	size_t datasz = tmpl->cbtxn->datasz;
+	if (extranoncesz == sizeof(unsigned int)) {
+		++extranoncesz;
+	} else
 	if (!merkle_only)
 	{
 		if (extranoncesz < sizeof(unsigned int))
 			extranoncesz = sizeof(unsigned int);
-		else
-		if (extranoncesz == sizeof(unsigned int))
-			++extranoncesz;
 	}
-	size_t availsz = 100 - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
+	size_t availsz = libblkmaker_coinbase_size_limit - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
+	{
+		const size_t current_blocksize = tmpl->cbtxn->datasz + tmpl->txns_datasz;
+		if (current_blocksize > tmpl->sizelimit) {
+			return false;
+		}
+		const size_t availsz2 = tmpl->sizelimit - current_blocksize;
+		if (availsz2 < availsz) {
+			availsz = availsz2;
+		}
+	}
 	if (appendsz > availsz)
 		return availsz;
 	
@@ -480,31 +501,76 @@ char varintEncode(unsigned char *out, uint64_t n) {
 	return L;
 }
 
-char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char * const data, const unsigned int dataid, blknonce_t nonce, const bool foreign)
+static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, const unsigned char * const data, const void * const extranonce, const size_t extranoncesz, blknonce_t nonce, const bool foreign)
 {
-	unsigned char blk[80 + 8 + 1000000];
+	const bool incl_gentxn = (foreign || (!(tmpl->mutations & BMAb_TRUNCATE && !extranoncesz)));
+	const bool incl_alltxn = (foreign || !(tmpl->mutations & BMAb_COINBASE));
+	
+	size_t blkbuf_sz = libblkmaker_blkheader_size;
+	if (incl_gentxn) {
+		blkbuf_sz += max_varint_size + tmpl->cbtxn->datasz;
+		if (incl_alltxn) {
+			blkbuf_sz += tmpl->txns_datasz;
+		}
+	}
+	
+	unsigned char * const blk = malloc(blkbuf_sz);
+	if (!blk) {
+		return NULL;
+	}
+	
 	memcpy(blk, data, 76);
 	nonce = htonl(nonce);
 	memcpy(&blk[76], &nonce, 4);
 	size_t offs = 80;
 	
-	if (foreign || (!(tmpl->mutations & BMAb_TRUNCATE && !dataid)))
-	{
+	if (incl_gentxn) {
 		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
 		
-		if (!_blkmk_extranonce(tmpl, &blk[offs], dataid, &offs))
-			return NULL;
+		// Essentially _blkmk_extranonce
+		if (extranoncesz) {
+			if (!_blkmk_append_cb(tmpl, &blk[offs], extranonce, extranoncesz, NULL)) {
+				free(blk);
+				return NULL;
+			}
+			
+			offs += tmpl->cbtxn->datasz + extranoncesz;
+		} else {
+			memcpy(&blk[offs], tmpl->cbtxn->data, tmpl->cbtxn->datasz);
+			offs += tmpl->cbtxn->datasz;
+		}
 		
-		if (foreign || !(tmpl->mutations & BMAb_COINBASE))
+		if (incl_alltxn) {
 			for (unsigned long i = 0; i < tmpl->txncount; ++i)
 			{
 				memcpy(&blk[offs], tmpl->txns[i].data, tmpl->txns[i].datasz);
 				offs += tmpl->txns[i].datasz;
 			}
+		}
 	}
 	
 	char *blkhex = malloc((offs * 2) + 1);
 	_blkmk_bin2hex(blkhex, blk, offs);
+	free(blk);
 	
 	return blkhex;
+}
+
+char *blkmk_assemble_submission2_(blktemplate_t * const tmpl, const unsigned char * const data, const void *extranonce, size_t extranoncesz, const unsigned int dataid, const blknonce_t nonce, const bool foreign)
+{
+	if (dataid) {
+		if (extranoncesz) {
+			// Cannot specify both!
+			return NULL;
+		}
+		extranonce = &dataid;
+		extranoncesz = sizeof(dataid);
+	} else if (extranoncesz == sizeof(unsigned int)) {
+		// Avoid overlapping with blkmk_get_data use
+		unsigned char extended_extranonce[extranoncesz + 1];
+		memcpy(extended_extranonce, extranonce, extranoncesz);
+		extended_extranonce[extranoncesz] = 0;
+		return blkmk_assemble_submission2_internal(tmpl, data, extended_extranonce, extranoncesz + 1, nonce, foreign);
+	}
+	return blkmk_assemble_submission2_internal(tmpl, data, extranonce, extranoncesz, nonce, foreign);
 }
