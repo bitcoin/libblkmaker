@@ -5,12 +5,11 @@
  * under the terms of the standard MIT license.  See COPYING for more details.
  */
 
-#define _BSD_SOURCE
-
 #include <limits.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include <blktemplate.h>
 
