@@ -50,3 +50,14 @@ dist_noinst_DATA = \
 	AUTHORS COPYING README \
 	example.c \
 	testinput.c
+
+if CAN_COMPILE_EXAMPLE
+EXTRA_PROGRAMS = example
+example_SOURCES = example.c
+example_LDADD = libblkmaker-$(LIBBLKMAKER_API_VERSION).la libblkmaker_jansson-$(LIBBLKMAKER_API_VERSION).la $(LIBGCRYPT_LIBS)
+example_CFLAGS = $(LIBGCRYPT_CFLAGS)
+else
+example:
+    @echo "libgcrypt is required to build the example, but was not found"
+.PHONY: example
+endif
