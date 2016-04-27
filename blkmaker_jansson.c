@@ -28,7 +28,8 @@
 #	error "Jansson 2.0 with long long support required!"
 #endif
 
-json_t *blktmpl_request_jansson(gbt_capabilities_t caps, const char *lpid) {
+static
+json_t *blktmpl_request_jansson2(const uint32_t caps, const char * const lpid, const char * const * const rulelist) {
 	json_t *req, *jcaps, *jstr, *reqf, *reqa;
 	if (!(req = json_object()))
 		return NULL;
@@ -67,6 +68,26 @@ json_t *blktmpl_request_jansson(gbt_capabilities_t caps, const char *lpid) {
 		if (json_object_set_new(req, "longpollid", jstr))
 			goto err;
 	}
+	jstr = NULL;
+	
+	// Add rules list
+	if (!(jcaps = json_array())) {
+		goto err;
+	}
+	for (const char * const *currule = rulelist; *currule; ++currule) {
+		if (!(jstr = json_string(*currule))) {
+			goto err;
+		}
+		if (json_array_append_new(jcaps, jstr)) {
+			goto err;
+		}
+	}
+	jstr = NULL;
+	if (json_object_set_new(req, "rules", jcaps))
+		goto err;
+	jcaps = NULL;
+	
+	// Put together main JSON-RPC request Object
 	if (!(jstr = json_string("getblocktemplate")))
 		goto err;
 	if (json_object_set_new(reqf, "method", jstr))
@@ -87,6 +108,10 @@ err:
 	if (jcaps)  json_decref(jcaps);
 	if (jstr )  json_decref(jstr );
 	return NULL;
+}
+
+json_t *blktmpl_request_jansson(gbt_capabilities_t caps, const char *lpid) {
+	return blktmpl_request_jansson2(caps, lpid, blkmk_supported_rules);
 }
 
 

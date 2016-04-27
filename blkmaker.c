@@ -18,6 +18,10 @@
 
 #include "private.h"
 
+const char *blkmk_supported_rules[] = {
+	NULL
+};
+
 static inline
 void my_htole32(unsigned char *buf, uint32_t n) {
 	buf[0] = (n >>  0) % 256;
