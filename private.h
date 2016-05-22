@@ -7,6 +7,7 @@
 // blkmaker.c
 extern const char *blkmk_supported_rules[];
 extern bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz);
+extern bool blkmk_supports_rule(const char *rulename);
 
 // blktemplate.c
 extern void _blktxn_free(struct blktxn_t *);
