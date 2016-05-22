@@ -19,6 +19,7 @@
 #include "private.h"
 
 const char *blkmk_supported_rules[] = {
+	"csv",
 	NULL
 };
 
