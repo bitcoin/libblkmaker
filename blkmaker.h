@@ -15,6 +15,9 @@ extern "C" {
 #define BLKMAKER_MAX_BLOCK_VERSION (0x3fffffff)
 #define BLKMAKER_MAX_PRERULES_BLOCK_VERSION (4)
 
+extern const char *blkmk_supported_rules[];
+extern bool blkmk_supports_rule(const char *rulename);
+
 extern bool (*blkmk_sha256_impl)(void *hash_out, const void *data, size_t datasz);
 
 extern uint64_t blkmk_init_generation(blktemplate_t *, void *script, size_t scriptsz);

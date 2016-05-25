@@ -7,9 +7,7 @@
 #include <blktemplate.h>
 
 // blkmaker.c
-extern const char *blkmk_supported_rules[];
 extern bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz);
-extern bool blkmk_supports_rule(const char *rulename);
 extern bool blkmk_sample_data_(blktemplate_t *, uint8_t *, unsigned int dataid);
 extern char *blkmk_assemble_submission2_(blktemplate_t *, const unsigned char *data, const void *extranonce, size_t extranoncesz, unsigned int dataid, blknonce_t nonce, bool foreign);
 

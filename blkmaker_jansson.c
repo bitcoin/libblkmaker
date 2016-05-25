@@ -22,7 +22,6 @@
 #	error "Jansson 2.0 with long long support required!"
 #endif
 
-static
 json_t *blktmpl_request_jansson2(const uint32_t caps, const char * const lpid, const char * const * const rulelist) {
 	json_t *req, *jcaps, *jstr, *reqf, *reqa;
 	if (!(req = json_object()))
