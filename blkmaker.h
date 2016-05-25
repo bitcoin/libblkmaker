@@ -12,7 +12,8 @@ extern "C" {
 #endif
 
 #define BLKMAKER_VERSION (7L)
-#define BLKMAKER_MAX_BLOCK_VERSION (4)
+#define BLKMAKER_MAX_BLOCK_VERSION (0x3fffffff)
+#define BLKMAKER_MAX_PRERULES_BLOCK_VERSION (4)
 
 extern bool (*blkmk_sha256_impl)(void *hash_out, const void *data, size_t datasz);
 

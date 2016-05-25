@@ -24,6 +24,20 @@
 
 #include "private.h"
 
+const char *blkmk_supported_rules[] = {
+	"csv",
+	NULL
+};
+
+bool blkmk_supports_rule(const char * const rulename) {
+	for (const char **r = blkmk_supported_rules; *r; ++r) {
+		if (!strcmp(rulename, *r)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 static inline
 void my_htole32(unsigned char *buf, uint32_t n) {
 	buf[0] = (n >>  0) % 256;
