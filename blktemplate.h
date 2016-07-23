@@ -39,6 +39,7 @@ struct blktxn_t {
 	uint64_t fee;
 	bool required;
 	int16_t sigops;
+	int32_t weight;
 	
 	txnhash_t *hash_;
 	txnhash_t *txid;

@@ -163,6 +163,15 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 		}
 	}
 	
+	txn->weight = -1;
+	if ((vv = json_object_get(txnj, "weight")) && json_is_number(vv)) {
+		const double f = json_number_value(txnj);
+		const int32_t i32 = f;
+		if (f == i32) {
+			txn->weight = i32;
+		}
+	}
+	
 	// TODO: dependcount/depends, fee, required, sigops
 	
 	return NULL;
