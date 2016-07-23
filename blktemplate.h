@@ -24,6 +24,9 @@ typedef uint32_t blktime_t;
 typedef int16_t blktime_diff_t;
 typedef uint32_t blknonce_t;
 
+#define libblkmaker_blkheader_size (80)
+#define libblkmaker_coinbase_size_limit (100)
+
 struct blktxn_t {
 	unsigned char *data;
 	size_t datasz;
@@ -135,6 +138,8 @@ typedef struct {
 	
 	unsigned aux_count;
 	struct blkaux_t *auxs;
+	
+	unsigned long txns_datasz;
 	
 	bool _calculated_witness;
 	libblkmaker_hash_t *_witnessmrklroot;
