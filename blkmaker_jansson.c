@@ -298,7 +298,6 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		} else {
 			tmpl->txns_sigops += txn->sigops_;
 		}
-		tmpl->txns_sigops += txn->sigops_;
 	}
 	
 	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
