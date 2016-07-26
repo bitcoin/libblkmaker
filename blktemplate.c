@@ -63,6 +63,7 @@ void blktxn_init(struct blktxn_t * const txn) {
 	txn->datasz = 0;
 	txn->hash = NULL;
 	txn->hash_ = NULL;
+	txn->txid = NULL;
 	
 	txn->dependscount = -1;
 	txn->depends = NULL;
@@ -70,6 +71,7 @@ void blktxn_init(struct blktxn_t * const txn) {
 	txn->fee_ = -1;
 	txn->required = false;
 	txn->sigops_ = -1;
+	txn->weight = -1;
 }
 
 blktemplate_t *blktmpl_create() {
