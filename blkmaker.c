@@ -759,7 +759,7 @@ static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, con
 	size_t blkbuf_sz = libblkmaker_blkheader_size;
 	if (incl_gentxn) {
 		blkbuf_sz += max_varint_size /* tx count */;
-		blkbuf_sz += tmpl->cbtxn->datasz + extranoncesz;
+		blkbuf_sz += tmpl->cbtxn->datasz + extranoncesz + (max_varint_size - 1) /* possible enlargement to txout count when adding commitment output */ + commitment_txout_size;
 		if (incl_alltxn) {
 			blkbuf_sz += tmpl->txns_datasz;
 		}
