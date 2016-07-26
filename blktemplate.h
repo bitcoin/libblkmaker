@@ -139,6 +139,7 @@ typedef struct {
 	struct blkaux_t *auxs;
 	
 	unsigned long txns_datasz;
+	signed long txns_sigops;
 } blktemplate_t;
 
 extern void blktxn_init(struct blktxn_t *);
