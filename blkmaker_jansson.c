@@ -281,7 +281,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	v = json_object_get(json, "transactions");
 	size_t txns = tmpl->txncount = json_array_size(v);
-	tmpl->txns = malloc(txns * sizeof(*tmpl->txns));
+	tmpl->txns = calloc(txns, sizeof(*tmpl->txns));
 	tmpl->txns_datasz = 0;
 	for (size_t i = 0; i < txns; ++i)
 	{
@@ -294,7 +294,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
 	{
-		tmpl->cbtxn = malloc(sizeof(*tmpl->cbtxn));
+		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
 		if ((s = parse_txn(tmpl->cbtxn, v, 0)))
 			return s;
 	}
