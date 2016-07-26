@@ -156,6 +156,8 @@ typedef struct {
 	bool _bip141_sigops;
 	bool _calculated_witness;
 	libblkmaker_hash_t *_witnessmrklroot;
+	int64_t weightlimit;
+	int64_t txns_weight;
 } blktemplate_t;
 
 extern void blktxn_init(struct blktxn_t *);

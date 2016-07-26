@@ -306,6 +306,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	my_flip(tmpl->prevblk, 32);
 	GETNUM_O(sigoplimit, unsigned short);
 	GETNUM_O(sizelimit, unsigned long);
+	GETNUM_O(weightlimit, int64_t);
 	GETNUM(version, uint32_t);
 	
 	if ((v = json_object_get(json, "mutable")) && json_is_array(v))
@@ -408,6 +409,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	tmpl->txns = calloc(txns, sizeof(*tmpl->txns));
 	tmpl->txns_datasz = 0;
 	tmpl->txns_sigops = 0;
+	tmpl->txns_weight = 0;
 	for (size_t i = 0; i < txns; ++i)
 	{
 		struct blktxn_t * const txn = &tmpl->txns[i];
@@ -421,6 +423,13 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 			tmpl->txns_sigops = -1;
 		} else {
 			tmpl->txns_sigops += txn->sigops_;
+		}
+		if (tmpl->txns_weight == -1) {
+			;  // Impossible to tally the unknown
+		} else if (txn->weight == -1) {
+			tmpl->txns_weight = -1;
+		} else {
+			tmpl->txns_weight += txn->weight;
 		}
 	}
 	

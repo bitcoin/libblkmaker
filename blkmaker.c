@@ -224,7 +224,9 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	off += 4;
 	
 	const int16_t sigops_counted = blkmk_count_sigops(script, scriptsz, tmpl->_bip141_sigops);
+	const int64_t gentx_weight = (off * 4) + 2 /* marker & flag */ + 1 /* witness stack count */ + 1 /* stack item size */ + 32 /* stack item: nonce */ ;
 	if (tmpl->txns_datasz + off > tmpl->sizelimit
+	 || (tmpl->txns_weight >= 0 && tmpl->txns_weight + gentx_weight > tmpl->weightlimit)
 	 || (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit)) {
 		free(data);
 		return 0;
@@ -241,6 +243,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	txn->data = data;
 	txn->datasz = off;
 	txn->sigops_ = sigops_counted;
+	txn->weight = gentx_weight;
 	
 	if (tmpl->cbtxn)
 	{
@@ -442,6 +445,10 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 		return false;
 	}
 	
+	if (tmpl->cbtxn->weight + tmpl->txns_weight + (appendsz * 4) > tmpl->weightlimit) {
+		return false;
+	}
+	
 	const int16_t orig_scriptSig_sigops = blkmk_count_sigops(&in[cbScriptSigLen + 1], in[cbScriptSigLen], tmpl->_bip141_sigops);
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
 	if (appended_at_offset)
@@ -504,6 +511,16 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 			availsz = availsz2;
 		}
 	}
+	{
+		const size_t current_blockweight = tmpl->cbtxn->weight + tmpl->txns_weight;
+		if (current_blockweight > tmpl->weightlimit) {
+			return false;
+		}
+		const size_t availsz2 = (tmpl->weightlimit - current_blockweight) / 4;
+		if (availsz2 < availsz) {
+			availsz = availsz2;
+		}
+	}
 	if (appendsz > availsz)
 		return availsz;
 	
@@ -515,6 +532,7 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 	if (!_blkmk_append_cb(tmpl, newp, append, appendsz, NULL, &tmpl->cbtxn->sigops_))
 		return -3;
 	tmpl->cbtxn->datasz += appendsz;
+	tmpl->cbtxn->weight += appendsz * 4;
 	
 	return availsz;
 }
