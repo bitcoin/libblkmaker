@@ -78,6 +78,37 @@ char varintEncode(unsigned char *out, uint64_t n) {
 	return L;
 }
 
+static
+int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz) {
+	int16_t sigops = 0;
+	for (size_t i = 0; i < scriptsz; ++i) {
+		if (script[i] <= 0x4c /* OP_PUSHDATA1 */) {
+			if (script[i] == 0x4c) {
+				if (i + 1 >= scriptsz) {
+					break;
+				}
+				++i;
+			}
+			i += script[i];
+		} else if (script[i] == 0x4d /* OP_PUSHDATA2 */) {
+			if (i + 2 >= scriptsz) {
+				break;
+			}
+			i += 2 + upk_u16le(script, i + 1);
+		} else if (script[i] == 0x4e /* OP_PUSHDATA4 */) {
+			if (i + 4 >= scriptsz) {
+				break;
+			}
+			i += 4 + upk_u32le(script, i + 1);
+		} else if (script[i] == 0xac /* OP_CHECKSIG */ || script[i] == 0xad /* OP_CHECKSIGVERIFY */) {
+			++sigops;
+		} else if (script[i] == 0xae /* OP_CHECKMULTISIG */ || script[i] == 0xaf /* OP_CHECKMULTISIGVERIFY */) {
+			sigops += 20;
+		}
+	}
+	return sigops;
+}
+
 uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const script, const size_t scriptsz, bool * const inout_newcb) {
 	if (tmpl->cbtxn && !(*inout_newcb && (tmpl->mutations & BMM_GENERATE)))
 	{
