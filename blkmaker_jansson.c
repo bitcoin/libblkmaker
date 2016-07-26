@@ -8,6 +8,7 @@
 #define _BSD_SOURCE
 #define _DEFAULT_SOURCE
 
+#include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -139,7 +140,7 @@ err:
 static void my_flip(void *, size_t);
 
 static
-const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
+const char *parse_txn(struct blktxn_t *txn, json_t *txnj, size_t my_tx_index) {
 	json_t *vv;
 	
 	blktxn_init(txn);
@@ -166,7 +167,40 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 			my_flip(*txn->hash_, sizeof(*txn->hash_));
 	}
 	
-	// TODO: dependcount/depends, fee, required, sigops
+	if ((vv = json_object_get(txnj, "depends")) && json_is_array(vv)) {
+		size_t depcount = json_array_size(vv);
+		if (depcount <= LONG_MAX) {
+			json_t *v;
+			long i;
+			double f;
+			unsigned long ul;
+			
+			txn->depends = malloc(sizeof(*txn->depends) * depcount);
+			for (i = 0; i < depcount; ++i) {
+				v = json_array_get(vv, i);
+				if (!json_is_number(v)) {
+					break;
+				}
+				f = json_number_value(v);
+				ul = f;
+				if (f != ul || ul >= my_tx_index) {
+					// Out of range for storage type, fractional number, forward dependency, etc
+					break;
+				}
+				txn->depends[i] = ul;
+			}
+			if (i != depcount) {
+				// We failed somewhere
+				free(txn->depends);
+				txn->depends = NULL;
+			} else {
+				// Success, finish up with storing the count
+				txn->dependscount = depcount;
+			}
+		}
+	}
+	
+	// TODO: fee, required, sigops
 	
 	return NULL;
 }
@@ -231,7 +265,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	for (size_t i = 0; i < txns; ++i)
 	{
 		struct blktxn_t * const txn = &tmpl->txns[i];
-		if ((s = parse_txn(txn, json_array_get(v, i)))) {
+		if ((s = parse_txn(txn, json_array_get(v, i), i + 1))) {
 			return s;
 		}
 		tmpl->txns_datasz += txn->datasz;
@@ -240,7 +274,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
 	{
 		tmpl->cbtxn = malloc(sizeof(*tmpl->cbtxn));
-		if ((s = parse_txn(tmpl->cbtxn, v)))
+		if ((s = parse_txn(tmpl->cbtxn, v, 0)))
 			return s;
 	}
 	
