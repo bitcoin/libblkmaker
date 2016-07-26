@@ -101,12 +101,12 @@ err:
 
 #define GETNUM(key)  do {  \
 	GET(key, number);                       \
-	tmpl->key = json_integer_value(v);      \
+	tmpl->key = json_number_value(v);      \
 } while(0)
 
 #define GETNUM_O2(key, skey)  do {  \
 	if ((v = json_object_get(json, #skey)) && json_is_number(v))  \
-		tmpl->key = json_integer_value(v);  \
+		tmpl->key = json_number_value(v);  \
 } while(0)
 
 #define GETNUM_O(key)  GETNUM_O2(key, key)
