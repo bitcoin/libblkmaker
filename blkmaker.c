@@ -605,16 +605,21 @@ bool _blkmk_insert_witness_commitment(blktemplate_t * const tmpl, unsigned char 
 	memcpy(&commitment_txout[9], witness_magic, sizeof(witness_magic));
 	memcpy(&commitment_txout[9 + sizeof(witness_magic)], &commitment, sizeof(commitment));
 	
-	// TODO: Put the new txout at the end to reduce movement
 	const size_t offset_of_txout_data = (offset_of_txout_count + in_txout_count_size);
-	const size_t new_offset_of_preexisting_txout_data = (offset_of_txout_count + out_txout_count_size + commitment_txout_size);
-	const size_t length_of_preexisting_txout_data_to_end_of_gentx = *gentxsize - offset_of_txout_data;
-	memmove(&gentxdata[new_offset_of_preexisting_txout_data], &gentxdata[offset_of_txout_data], length_of_preexisting_txout_data_to_end_of_gentx);
-	const size_t movement_delta = new_offset_of_preexisting_txout_data - offset_of_txout_data;
-	*gentxsize += movement_delta;
+	const size_t new_offset_of_preexisting_txout_data = (offset_of_txout_count + out_txout_count_size);
+	const size_t length_of_txtail = 4;
+	const size_t length_of_preexisting_txout_data = (*gentxsize - length_of_txtail) - offset_of_txout_data;
+	const size_t offset_of_txtail_i = *gentxsize - length_of_txtail;  // just the lock time
+	const size_t offset_of_txtail_o = offset_of_txtail_i + (out_txout_count_size - in_txout_count_size) + commitment_txout_size;
+	memmove(&gentxdata[offset_of_txtail_o], &gentxdata[offset_of_txtail_i], length_of_txtail);
+	if (offset_of_txout_data != new_offset_of_preexisting_txout_data) {
+		memmove(&gentxdata[new_offset_of_preexisting_txout_data], &gentxdata[offset_of_txout_data], length_of_preexisting_txout_data);
+	}
+	memcpy(&gentxdata[offset_of_txout_count], insertbuf, out_txout_count_size);
+	const size_t offset_of_commitment_txout_o = new_offset_of_preexisting_txout_data + length_of_preexisting_txout_data;
+	memcpy(&gentxdata[offset_of_commitment_txout_o], commitment_txout, commitment_txout_size);
 	
-	const size_t insertbuf_len = out_txout_count_size + commitment_txout_size;
-	memcpy(&gentxdata[offset_of_txout_count], insertbuf, insertbuf_len);
+	*gentxsize = offset_of_txtail_o + length_of_txtail;
 	
 	return true;
 }
