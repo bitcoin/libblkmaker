@@ -8,6 +8,7 @@
 #define _BSD_SOURCE
 #define _DEFAULT_SOURCE
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -105,17 +106,27 @@ err:
 		return "Error decoding '" #key "'";                                 \
 } while(0)
 
-#define GETNUM(key)  do {  \
+#define GETNUM(key, type)  do {  \
 	GET(key, number);                       \
-	tmpl->key = json_number_value(v);      \
+	const double tmpd = json_number_value(v);  \
+	const type tmp = tmpd;  \
+	if (tmpd != tmp) {  \
+		return "Invalid number value for '" #key "'";  \
+	}  \
+	tmpl->key = tmp;  \
 } while(0)
 
-#define GETNUM_O2(key, skey)  do {  \
-	if ((v = json_object_get(json, #skey)) && json_is_number(v))  \
-		tmpl->key = json_number_value(v);  \
+#define GETNUM_O2(key, skey, type)  do {  \
+	if ((v = json_object_get(json, #skey)) && json_is_number(v)) {  \
+		const double tmpd = json_number_value(v);  \
+		const type tmp = tmpd;  \
+		if (tmpd == tmp) {  \
+			tmpl->key = tmp;  \
+		}  \
+	}  \
 } while(0)
 
-#define GETNUM_O(key)  GETNUM_O2(key, key)
+#define GETNUM_O(key, type)  GETNUM_O2(key, key, type)
 
 #define GETSTR(key, skey)  do {  \
 	if ((v = json_object_get(json, #key)) && json_is_string(v))  \
@@ -181,23 +192,23 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	GETHEX(bits, diffbits);
 	my_flip(tmpl->diffbits, 4);
-	GETNUM(curtime);
-	GETNUM(height);
+	GETNUM(curtime, blktime_t);
+	GETNUM(height, blkheight_t);
 	GETHEX(previousblockhash, prevblk);
 	my_flip(tmpl->prevblk, 32);
-	GETNUM_O(sigoplimit);
-	GETNUM_O(sizelimit);
-	GETNUM(version);
+	GETNUM_O(sigoplimit, unsigned short);
+	GETNUM_O(sizelimit, unsigned long);
+	GETNUM(version, uint32_t);
 	
-	GETNUM_O2(cbvalue, coinbasevalue);
+	GETNUM_O2(cbvalue, coinbasevalue, uint64_t);
 	
 	GETSTR(workid, workid);
 	
-	GETNUM_O(expires);
-	GETNUM_O(maxtime);
-	GETNUM_O(maxtimeoff);
-	GETNUM_O(mintime);
-	GETNUM_O(mintimeoff);
+	GETNUM_O(expires, int16_t);
+	GETNUM_O(maxtime, blktime_t);
+	GETNUM_O(maxtimeoff, blktime_diff_t);
+	GETNUM_O(mintime, blktime_t);
+	GETNUM_O(mintimeoff, blktime_diff_t);
 	
 	GETSTR(longpollid, lp.id);
 	GETSTR(longpolluri, lp.uri);
