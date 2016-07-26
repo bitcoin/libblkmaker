@@ -585,10 +585,11 @@ static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, con
 		return NULL;
 	}
 	
-	memcpy(blk, data, 76);
+	const size_t header_before_nonce_sz = libblkmaker_blkheader_size - sizeof(nonce);
+	memcpy(blk, data, header_before_nonce_sz);
 	nonce = htonl(nonce);
-	memcpy(&blk[76], &nonce, 4);
-	size_t offs = 80;
+	memcpy(&blk[header_before_nonce_sz], &nonce, sizeof(nonce));
+	size_t offs = libblkmaker_blkheader_size;
 	
 	if (incl_gentxn) {
 		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
