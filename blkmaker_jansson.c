@@ -24,7 +24,7 @@
 #	error "Jansson 2.0 with long long support required!"
 #endif
 
-json_t *blktmpl_request_jansson(const uint32_t caps, const char * const lpid) {
+json_t *blktmpl_request_jansson2(const uint32_t caps, const char * const lpid, const char * const * const rulelist) {
 	json_t *req, *jcaps, *jstr, *reqf, *reqa;
 	if (!(req = json_object()))
 		return NULL;
@@ -63,6 +63,26 @@ json_t *blktmpl_request_jansson(const uint32_t caps, const char * const lpid) {
 		if (json_object_set_new(req, "longpollid", jstr))
 			goto err;
 	}
+	jstr = NULL;
+	
+	// Add rules list
+	if (!(jcaps = json_array())) {
+		goto err;
+	}
+	for (const char * const *currule = rulelist; *currule; ++currule) {
+		if (!(jstr = json_string(*currule))) {
+			goto err;
+		}
+		if (json_array_append_new(jcaps, jstr)) {
+			goto err;
+		}
+	}
+	jstr = NULL;
+	if (json_object_set_new(req, "rules", jcaps))
+		goto err;
+	jcaps = NULL;
+	
+	// Put together main JSON-RPC request Object
 	if (!(jstr = json_string("getblocktemplate")))
 		goto err;
 	if (json_object_set_new(reqf, "method", jstr))
@@ -83,6 +103,10 @@ err:
 	if (jcaps)  json_decref(jcaps);
 	if (jstr )  json_decref(jstr );
 	return NULL;
+}
+
+json_t *blktmpl_request_jansson(const uint32_t caps, const char * const lpid) {
+	return blktmpl_request_jansson2(caps, lpid, blkmk_supported_rules);
 }
 
 
@@ -366,10 +390,68 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		}
 	}
 	
-	if (tmpl->version > BLKMAKER_MAX_BLOCK_VERSION || (tmpl->version >= 2 && !tmpl->height))
+	if ((tmpl->version & 0xe0000000) == 0x20000000 && (v = json_object_get(json, "vbavailable")) && json_is_object(v) && (v = json_object_get(json, "rules")) && json_is_array(v)) {
+		// calloc so that a failure doesn't result in freeing a random pointer
+		size_t n = json_array_size(v);
+		tmpl->rules = calloc(n + 1, sizeof(*tmpl->rules));
+		for (size_t i = 0; i < n; ++i) {
+			v2 = json_array_get(v, i);
+			if (!json_is_string(v2)) {
+				return "Non-String data in template rules list";
+			}
+			s = json_string_value(v2);
+			if (s[0] == '!') {
+				++s;
+				if (!blkmk_supports_rule(s)) {
+					return "Unsupported rule strictly required by template";
+				}
+			} else {
+				if (!blkmk_supports_rule(s)) {
+					tmpl->unsupported_rule = true;
+				}
+			}
+			tmpl->rules[i] = strdup(s);
+			if (!tmpl->rules[i]) {
+				return "Memory allocation error parsing rules";
+			}
+		}
+		
+		v = json_object_get(json, "vbavailable");
+		n = json_object_size(v);
+		tmpl->vbavailable = calloc(n + 1, sizeof(*tmpl->vbavailable));
+		struct blktmpl_vbassoc **cur_vbassoc = tmpl->vbavailable;
+		for (void *iter = json_object_iter(v); iter; (iter = json_object_iter_next(v, iter)), ++cur_vbassoc) {
+			v2 = json_object_iter_value(iter);
+			if (!json_is_number(v2)) {
+				return "Invalid type for vbavailable bit";
+			}
+			double bitnum = json_number_value(v2);
+			if (bitnum < 0 || bitnum > 28 || (unsigned)bitnum != bitnum) {
+				return "Invalid bit number in vbavailable";
+			}
+			*cur_vbassoc = malloc(sizeof(**cur_vbassoc));
+			if (!*cur_vbassoc) {
+				return "Memory allocation error for struct blktmpl_vbassoc";
+			}
+			**cur_vbassoc = (struct blktmpl_vbassoc){
+				.name = strdup(json_object_iter_key(iter)),
+				.bitnum = bitnum,
+			};
+			if (!(*cur_vbassoc)->name) {
+				return "Memory allocation error for vbavailable name";
+			}
+		}
+		
+		v = json_object_get(json, "vbrequired");
+		if (v && json_is_number(v)) {
+			tmpl->vbrequired = json_number_value(v);
+		}
+	}
+	else
+	if (tmpl->version > BLKMAKER_MAX_PRERULES_BLOCK_VERSION || (tmpl->version >= 2 && !tmpl->height))
 	{
 		if (tmpl->mutations & BMM_VERDROP)
-			tmpl->version = tmpl->height ? BLKMAKER_MAX_BLOCK_VERSION : 1;
+			tmpl->version = tmpl->height ? BLKMAKER_MAX_PRERULES_BLOCK_VERSION : 1;
 		else
 		if (!(tmpl->mutations & BMM_VERFORCE))
 			return "Unrecognized block version, and not allowed to reduce or force it";
