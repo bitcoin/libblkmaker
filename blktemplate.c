@@ -138,5 +138,20 @@ void blktmpl_free(blktemplate_t *tmpl) {
 	free(tmpl->target);
 	free(tmpl->lp.id);
 	free(tmpl->lp.uri);
+	
+	if (tmpl->rules) {
+		for (char **currule = tmpl->rules; *currule; ++currule) {
+			free(*currule);
+		}
+		free(tmpl->rules);
+	}
+	if (tmpl->vbavailable) {
+		for (struct blktmpl_vbassoc **curvb = tmpl->vbavailable; *curvb; ++curvb) {
+			free((*curvb)->name);
+			free(*curvb);
+		}
+		free(tmpl->vbavailable);
+	}
+	
 	free(tmpl);
 }

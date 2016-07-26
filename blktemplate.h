@@ -93,6 +93,11 @@ extern gbt_capabilities_t blktmpl_getcapability(const char *);
 
 typedef gbt_capabilities_t blkmutations_t;
 
+struct blktmpl_vbassoc {
+	char *name;
+	uint8_t bitnum;
+};
+
 // WARNING: Do not allocate this (ABI is not guaranteed to remain fixed-size)
 typedef struct {
 	uint32_t version;
@@ -140,6 +145,11 @@ typedef struct {
 	
 	unsigned long txns_datasz;
 	signed long txns_sigops;
+	
+	char **rules;
+	bool unsupported_rule;
+	struct blktmpl_vbassoc **vbavailable;
+	uint32_t vbrequired;
 } blktemplate_t;
 
 extern void blktxn_init(struct blktxn_t *);
