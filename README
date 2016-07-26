@@ -5,7 +5,8 @@ Example dependencies:
 	Jansson 2.1 (to read JSON from stdin)
 	libgcrypt (for SHA256)
 
-For usage, check out example.c
+For usage, check out example.c. Run "make example" to build it.
+
 Note that you must assign blkmk_sha256_impl to a function pointer:
 	bool mysha256(void *hash_out, const void *data, size_t datasz)
 hash_out must be able to overlap with data!
