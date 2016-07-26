@@ -215,7 +215,13 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj, size_t my_tx_index) {
 		txn->required = true;
 	}
 	
-	// TODO: sigops
+	if ((vv = json_object_get(txnj, "sigops")) && json_is_number(vv)) {
+		const double f = json_number_value(vv);
+		int16_t i16 = f;
+		if (i16 == f && i16 >= 0) {
+			txn->sigops_ = i16;
+		}
+	}
 	
 	return NULL;
 }
