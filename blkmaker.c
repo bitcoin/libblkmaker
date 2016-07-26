@@ -220,8 +220,9 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	memset(&data[off], 0, 4);  // lock time
 	off += 4;
 	
+	const int16_t sigops_counted = blkmk_count_sigops(script, scriptsz);
 	if (tmpl->txns_datasz + off > tmpl->sizelimit
-	 || (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + blkmk_count_sigops(script, scriptsz) > tmpl->sigoplimit)) {
+	 || (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit)) {
 		free(data);
 		return 0;
 	}
@@ -236,6 +237,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	
 	txn->data = data;
 	txn->datasz = off;
+	txn->sigops_ = sigops_counted;
 	
 	if (tmpl->cbtxn)
 	{
@@ -425,7 +427,7 @@ bool _blkmk_witness_mrklroot(blktemplate_t * const tmpl) {
 static const int cbScriptSigLen = 4 + 1 + 36;
 
 static
-bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void * const append, const size_t appendsz, size_t * const appended_at_offset) {
+bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void * const append, const size_t appendsz, size_t * const appended_at_offset, int16_t * const sigops_counted_p) {
 	unsigned char *out = vout;
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
@@ -437,6 +439,7 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 		return false;
 	}
 	
+	const int16_t orig_scriptSig_sigops = blkmk_count_sigops(&in[cbScriptSigLen + 1], in[cbScriptSigLen]);
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
 	if (appended_at_offset)
 		*appended_at_offset = cbPostScriptSig;
@@ -454,6 +457,21 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	
 	out[cbScriptSigLen] += appendsz;
 	memcpy(outExtranonce, append, appendsz);
+	
+	const int16_t sigops_counted = (tmpl->cbtxn->sigops_ - orig_scriptSig_sigops) + blkmk_count_sigops(&out[cbScriptSigLen + 1], out[cbScriptSigLen]);
+	if (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit) {
+		// Overflowed :(
+		if (out == in) {
+			// Revert it!
+			out[cbScriptSigLen] -= appendsz;
+			memmove(&out[cbPostScriptSig], outPostScriptSig, insz - cbPostScriptSig);
+		}
+		return false;
+	}
+	
+	if (sigops_counted_p) {
+		*sigops_counted_p = sigops_counted;
+	}
 	
 	return true;
 }
@@ -491,7 +509,7 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 		return -2;
 	
 	tmpl->cbtxn->data = newp;
-	if (!_blkmk_append_cb(tmpl, newp, append, appendsz, NULL))
+	if (!_blkmk_append_cb(tmpl, newp, append, appendsz, NULL, &tmpl->cbtxn->sigops_))
 		return -3;
 	tmpl->cbtxn->datasz += appendsz;
 	
@@ -513,7 +531,7 @@ bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, siz
 		return true;
 	}
 	
-	if (!_blkmk_append_cb(tmpl, vout, &workid, sizeof(workid), NULL))
+	if (!_blkmk_append_cb(tmpl, vout, &workid, sizeof(workid), NULL, NULL))
 		return false;
 	
 	*offs += insz + sizeof(workid);
@@ -665,7 +683,7 @@ bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t 
 		return false;
 	unsigned char dummy[extranoncesz];
 	memset(dummy, 0, extranoncesz);
-	if (!_blkmk_append_cb(tmpl, *out_cbtxn, dummy, extranoncesz, cbextranonceoffset))
+	if (!_blkmk_append_cb(tmpl, *out_cbtxn, dummy, extranoncesz, cbextranonceoffset, NULL))
 	{
 		free(*out_cbtxn);
 		return false;
@@ -736,7 +754,7 @@ static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, con
 		size_t cbtxnlen = 0;
 		// Essentially _blkmk_extranonce
 		if (extranoncesz) {
-			if (!_blkmk_append_cb(tmpl, &blk[offs], extranonce, extranoncesz, NULL)) {
+			if (!_blkmk_append_cb(tmpl, &blk[offs], extranonce, extranoncesz, NULL, NULL)) {
 				free(blk);
 				return NULL;
 			}

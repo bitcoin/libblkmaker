@@ -324,7 +324,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	v = json_object_get(json, "transactions");
 	size_t txns = tmpl->txncount = json_array_size(v);
-	tmpl->txns = malloc(txns * sizeof(*tmpl->txns));
+	tmpl->txns = calloc(txns, sizeof(*tmpl->txns));
 	tmpl->txns_datasz = 0;
 	tmpl->txns_sigops = 0;
 	for (size_t i = 0; i < txns; ++i)
@@ -341,12 +341,11 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		} else {
 			tmpl->txns_sigops += txn->sigops_;
 		}
-		tmpl->txns_sigops += txn->sigops_;
 	}
 	
 	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
 	{
-		tmpl->cbtxn = malloc(sizeof(*tmpl->cbtxn));
+		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
 		if ((s = parse_txn(tmpl->cbtxn, v, 0)))
 			return s;
 	}
@@ -354,7 +353,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	if ((v = json_object_get(json, "coinbaseaux")) && json_is_object(v))
 	{
 		tmpl->aux_count = json_object_size(v);
-		tmpl->auxs = malloc(tmpl->aux_count * sizeof(*tmpl->auxs));
+		tmpl->auxs = calloc(tmpl->aux_count, sizeof(*tmpl->auxs));
 		unsigned i = 0;
 		for (void *iter = json_object_iter(v); iter; (iter = json_object_iter_next(v, iter)), ++i)
 		{
@@ -368,7 +367,9 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 				.data = malloc(sz),
 				.datasz = sz,
 			};
-			my_hex2bin(tmpl->auxs[i].data, s, sz);
+			if (!my_hex2bin(tmpl->auxs[i].data, s, sz)) {
+				return "Error decoding 'coinbaseaux' data";
+			}
 		}
 	}
 	
