@@ -33,12 +33,12 @@ struct blktxn_t {
 	// NOTE: The byte order of hash is backward; use hash_ instead
 	txnhash_t *hash;
 	
-	signed long dependcount;
+	signed long dependscount;
 	unsigned long *depends;
 	
-	uint64_t fee;
+	int64_t fee_;
 	bool required;
-	int16_t sigops;
+	int16_t sigops_;
 	int32_t weight;
 	
 	txnhash_t *hash_;
@@ -145,6 +145,9 @@ typedef struct {
 	bool _calculated_witness;
 	libblkmaker_hash_t *_witnessmrklroot;
 } blktemplate_t;
+
+extern void blktxn_init(struct blktxn_t *);
+extern void blktxn_clean(struct blktxn_t *);
 
 extern blktemplate_t *blktmpl_create();
 extern uint32_t blktmpl_addcaps(const blktemplate_t *);

@@ -58,6 +58,20 @@ gbt_capabilities_t blktmpl_getcapability(const char *n) {
 	return 0;
 }
 
+void blktxn_init(struct blktxn_t * const txn) {
+	txn->data = NULL;
+	txn->datasz = 0;
+	txn->hash = NULL;
+	txn->hash_ = NULL;
+	
+	txn->dependscount = -1;
+	txn->depends = NULL;
+	
+	txn->fee_ = -1;
+	txn->required = false;
+	txn->sigops_ = -1;
+}
+
 blktemplate_t *blktmpl_create() {
 	blktemplate_t *tmpl;
 	tmpl = calloc(1, sizeof(*tmpl));
@@ -94,14 +108,13 @@ bool blktmpl_get_submitold(blktemplate_t *tmpl) {
 	return tmpl->submitold;
 }
 
-void _blktxn_free(struct blktxn_t *bt) {
+void blktxn_clean(struct blktxn_t * const bt) {
 	free(bt->data);
 	free(bt->hash);
 	free(bt->hash_);
 	free(bt->depends);
 	free(bt->txid);
 }
-#define blktxn_free  _blktxn_free
 
 static
 void blkaux_clean(struct blkaux_t * const aux) {
@@ -111,11 +124,11 @@ void blkaux_clean(struct blkaux_t * const aux) {
 
 void blktmpl_free(blktemplate_t *tmpl) {
 	for (unsigned long i = 0; i < tmpl->txncount; ++i)
-		blktxn_free(&tmpl->txns[i]);
+		blktxn_clean(&tmpl->txns[i]);
 	free(tmpl->txns);
 	if (tmpl->cbtxn)
 	{
-		blktxn_free(tmpl->cbtxn);
+		blktxn_clean(tmpl->cbtxn);
 		free(tmpl->cbtxn);
 	}
 	free(tmpl->_mrklbranch);

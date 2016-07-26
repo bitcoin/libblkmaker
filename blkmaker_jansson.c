@@ -8,6 +8,8 @@
 #define _BSD_SOURCE
 #define _DEFAULT_SOURCE
 
+#include <limits.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -99,17 +101,27 @@ err:
 		return "Error decoding '" #key "'";                                 \
 } while(0)
 
-#define GETNUM(key)  do {  \
+#define GETNUM(key, type)  do {  \
 	GET(key, number);                       \
-	tmpl->key = json_integer_value(v);      \
+	const double tmpd = json_number_value(v);  \
+	const type tmp = tmpd;  \
+	if (tmpd != tmp) {  \
+		return "Invalid number value for '" #key "'";  \
+	}  \
+	tmpl->key = tmp;  \
 } while(0)
 
-#define GETNUM_O2(key, skey)  do {  \
-	if ((v = json_object_get(json, #skey)) && json_is_number(v))  \
-		tmpl->key = json_integer_value(v);  \
+#define GETNUM_O2(key, skey, type)  do {  \
+	if ((v = json_object_get(json, #skey)) && json_is_number(v)) {  \
+		const double tmpd = json_number_value(v);  \
+		const type tmp = tmpd;  \
+		if (tmpd == tmp) {  \
+			tmpl->key = tmp;  \
+		}  \
+	}  \
 } while(0)
 
-#define GETNUM_O(key)  GETNUM_O2(key, key)
+#define GETNUM_O(key, type)  GETNUM_O2(key, key, type)
 
 #define GETSTR(key, skey)  do {  \
 	if ((v = json_object_get(json, #key)) && json_is_string(v))  \
@@ -128,8 +140,10 @@ err:
 static void my_flip(void *, size_t);
 
 static
-const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
+const char *parse_txn(struct blktxn_t *txn, json_t *txnj, size_t my_tx_index) {
 	json_t *vv;
+	
+	blktxn_init(txn);
 	
 	if (!((vv = json_object_get(txnj, "data")) && json_is_string(vv)))
 		return "Missing or invalid type for transaction data";
@@ -172,7 +186,61 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 		}
 	}
 	
-	// TODO: dependcount/depends, fee, required, sigops
+	if ((vv = json_object_get(txnj, "depends")) && json_is_array(vv)) {
+		size_t depcount = json_array_size(vv);
+		if (depcount <= LONG_MAX) {
+			json_t *v;
+			long i;
+			double f;
+			unsigned long ul;
+			
+			txn->depends = malloc(sizeof(*txn->depends) * depcount);
+			for (i = 0; i < depcount; ++i) {
+				v = json_array_get(vv, i);
+				if (!json_is_number(v)) {
+					break;
+				}
+				f = json_number_value(v);
+				ul = f;
+				if (f != ul || ul >= my_tx_index) {
+					// Out of range for storage type, fractional number, forward dependency, etc
+					break;
+				}
+				txn->depends[i] = ul;
+			}
+			if (i != depcount) {
+				// We failed somewhere
+				free(txn->depends);
+				txn->depends = NULL;
+			} else {
+				// Success, finish up with storing the count
+				txn->dependscount = depcount;
+			}
+		}
+	}
+	
+	if ((vv = json_object_get(txnj, "fee")) && json_is_number(vv)) {
+		double f;
+		int64_t i64;
+		
+		f = json_number_value(vv);
+		i64 = f;
+		if (i64 == f && i64 >= 0) {
+			txn->fee_ = i64;
+		}
+	}
+	
+	if ((vv = json_object_get(txnj, "required")) && json_is_true(vv)) {
+		txn->required = true;
+	}
+	
+	if ((vv = json_object_get(txnj, "sigops")) && json_is_number(vv)) {
+		const double f = json_number_value(vv);
+		int16_t i16 = f;
+		if (i16 == f && i16 >= 0) {
+			txn->sigops_ = i16;
+		}
+	}
 	
 	return NULL;
 }
@@ -208,23 +276,23 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	GETHEX(bits, diffbits);
 	my_flip(tmpl->diffbits, 4);
-	GETNUM(curtime);
-	GETNUM(height);
+	GETNUM(curtime, blktime_t);
+	GETNUM(height, blkheight_t);
 	GETHEX(previousblockhash, prevblk);
 	my_flip(tmpl->prevblk, 32);
-	GETNUM_O(sigoplimit);
-	GETNUM_O(sizelimit);
-	GETNUM(version);
+	GETNUM_O(sigoplimit, unsigned short);
+	GETNUM_O(sizelimit, unsigned long);
+	GETNUM(version, uint32_t);
 	
-	GETNUM_O2(cbvalue, coinbasevalue);
+	GETNUM_O2(cbvalue, coinbasevalue, uint64_t);
 	
 	GETSTR(workid, workid);
 	
-	GETNUM_O(expires);
-	GETNUM_O(maxtime);
-	GETNUM_O(maxtimeoff);
-	GETNUM_O(mintime);
-	GETNUM_O(mintimeoff);
+	GETNUM_O(expires, int16_t);
+	GETNUM_O(maxtime, blktime_t);
+	GETNUM_O(maxtimeoff, blktime_diff_t);
+	GETNUM_O(mintime, blktime_t);
+	GETNUM_O(mintimeoff, blktime_diff_t);
 	
 	GETSTR(longpollid, lp.id);
 	GETSTR(longpolluri, lp.uri);
@@ -232,12 +300,12 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	v = json_object_get(json, "transactions");
 	size_t txns = tmpl->txncount = json_array_size(v);
-	tmpl->txns = calloc(txns, sizeof(*tmpl->txns));
+	tmpl->txns = malloc(txns * sizeof(*tmpl->txns));
 	tmpl->txns_datasz = 0;
 	for (size_t i = 0; i < txns; ++i)
 	{
 		struct blktxn_t * const txn = &tmpl->txns[i];
-		if ((s = parse_txn(txn, json_array_get(v, i)))) {
+		if ((s = parse_txn(txn, json_array_get(v, i), i + 1))) {
 			return s;
 		}
 		tmpl->txns_datasz += txn->datasz;
@@ -245,8 +313,8 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
 	{
-		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
-		if ((s = parse_txn(tmpl->cbtxn, v)))
+		tmpl->cbtxn = malloc(sizeof(*tmpl->cbtxn));
+		if ((s = parse_txn(tmpl->cbtxn, v, 0)))
 			return s;
 	}
 	

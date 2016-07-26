@@ -180,19 +180,20 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 		return 0;
 	}
 	
-	struct blktxn_t *txn = calloc(1, sizeof(*tmpl->cbtxn));
+	struct blktxn_t *txn = malloc(sizeof(*tmpl->cbtxn));
 	if (!txn)
 	{
 		free(data);
 		return 0;
 	}
+	blktxn_init(txn);
 	
 	txn->data = data;
 	txn->datasz = off;
 	
 	if (tmpl->cbtxn)
 	{
-		_blktxn_free(tmpl->cbtxn);
+		blktxn_clean(tmpl->cbtxn);
 		free(tmpl->cbtxn);
 	}
 	tmpl->cbtxn = txn;
