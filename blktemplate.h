@@ -141,6 +141,7 @@ typedef struct {
 	struct blkaux_t *auxs;
 	
 	unsigned long txns_datasz;
+	signed long txns_sigops;
 	
 	bool _calculated_witness;
 	libblkmaker_hash_t *_witnessmrklroot;
