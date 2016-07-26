@@ -200,7 +200,18 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj, size_t my_tx_index) {
 		}
 	}
 	
-	// TODO: fee, required, sigops
+	if ((vv = json_object_get(txnj, "fee")) && json_is_number(vv)) {
+		double f;
+		int64_t i64;
+		
+		f = json_number_value(vv);
+		i64 = f;
+		if (i64 == f && i64 >= 0) {
+			txn->fee_ = i64;
+		}
+	}
+	
+	// TODO: required, sigops
 	
 	return NULL;
 }
