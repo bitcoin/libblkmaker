@@ -26,6 +26,7 @@
 
 const char *blkmk_supported_rules[] = {
 	"csv",
+	"segwit",
 	NULL
 };
 
