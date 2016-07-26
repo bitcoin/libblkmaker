@@ -211,7 +211,11 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj, size_t my_tx_index) {
 		}
 	}
 	
-	// TODO: required, sigops
+	if ((vv = json_object_get(txnj, "required")) && json_is_true(vv)) {
+		txn->required = true;
+	}
+	
+	// TODO: sigops
 	
 	return NULL;
 }
