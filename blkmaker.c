@@ -180,7 +180,8 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	memset(&data[off], 0, 4);  // lock time
 	off += 4;
 	
-	if (tmpl->txns_datasz + off > tmpl->sizelimit) {
+	if (tmpl->txns_datasz + off > tmpl->sizelimit
+	 || (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + blkmk_count_sigops(script, scriptsz) > tmpl->sigoplimit)) {
 		free(data);
 		return 0;
 	}
