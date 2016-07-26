@@ -283,6 +283,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	size_t txns = tmpl->txncount = json_array_size(v);
 	tmpl->txns = malloc(txns * sizeof(*tmpl->txns));
 	tmpl->txns_datasz = 0;
+	tmpl->txns_sigops = 0;
 	for (size_t i = 0; i < txns; ++i)
 	{
 		struct blktxn_t * const txn = &tmpl->txns[i];
@@ -290,6 +291,14 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 			return s;
 		}
 		tmpl->txns_datasz += txn->datasz;
+		if (tmpl->txns_sigops == -1) {
+			;  // Impossible to tally the unknown
+		} else if (txn->sigops_ == -1) {
+			tmpl->txns_sigops = -1;
+		} else {
+			tmpl->txns_sigops += txn->sigops_;
+		}
+		tmpl->txns_sigops += txn->sigops_;
 	}
 	
 	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
