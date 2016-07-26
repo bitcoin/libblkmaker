@@ -142,6 +142,8 @@ static
 const char *parse_txn(struct blktxn_t *txn, json_t *txnj) {
 	json_t *vv;
 	
+	blktxn_init(txn);
+	
 	if (!((vv = json_object_get(txnj, "data")) && json_is_string(vv)))
 		return "Missing or invalid type for transaction data";
 	const char *hexdata = json_string_value(vv);
@@ -224,7 +226,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	v = json_object_get(json, "transactions");
 	size_t txns = tmpl->txncount = json_array_size(v);
-	tmpl->txns = calloc(txns, sizeof(*tmpl->txns));
+	tmpl->txns = malloc(txns * sizeof(*tmpl->txns));
 	tmpl->txns_datasz = 0;
 	for (size_t i = 0; i < txns; ++i)
 	{
@@ -237,7 +239,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
 	{
-		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
+		tmpl->cbtxn = malloc(sizeof(*tmpl->cbtxn));
 		if ((s = parse_txn(tmpl->cbtxn, v)))
 			return s;
 	}
