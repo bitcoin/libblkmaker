@@ -153,6 +153,7 @@ typedef struct {
 	struct blktmpl_vbassoc **vbavailable;
 	uint32_t vbrequired;
 	
+	bool _bip141_sigops;
 	bool _calculated_witness;
 	libblkmaker_hash_t *_witnessmrklroot;
 } blktemplate_t;

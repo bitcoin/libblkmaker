@@ -343,6 +343,9 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 			if (!tmpl->rules[i]) {
 				return "Memory allocation error parsing rules";
 			}
+			if (!strcmp(s, "segwit")) {
+				tmpl->_bip141_sigops = true;
+			}
 		}
 		
 		v = json_object_get(json, "vbavailable");

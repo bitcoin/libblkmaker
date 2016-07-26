@@ -119,7 +119,7 @@ char varintEncode(unsigned char *out, uint64_t n) {
 }
 
 static
-int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz) {
+int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz, const bool bip141) {
 	int16_t sigops = 0;
 	for (size_t i = 0; i < scriptsz; ++i) {
 		if (script[i] <= 0x4c /* OP_PUSHDATA1 */) {
@@ -145,6 +145,9 @@ int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz) 
 		} else if (script[i] == 0xae /* OP_CHECKMULTISIG */ || script[i] == 0xaf /* OP_CHECKMULTISIGVERIFY */) {
 			sigops += 20;
 		}
+	}
+	if (bip141) {
+		sigops *= 4;
 	}
 	return sigops;
 }
@@ -220,7 +223,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	memset(&data[off], 0, 4);  // lock time
 	off += 4;
 	
-	const int16_t sigops_counted = blkmk_count_sigops(script, scriptsz);
+	const int16_t sigops_counted = blkmk_count_sigops(script, scriptsz, tmpl->_bip141_sigops);
 	if (tmpl->txns_datasz + off > tmpl->sizelimit
 	 || (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit)) {
 		free(data);
@@ -439,7 +442,7 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 		return false;
 	}
 	
-	const int16_t orig_scriptSig_sigops = blkmk_count_sigops(&in[cbScriptSigLen + 1], in[cbScriptSigLen]);
+	const int16_t orig_scriptSig_sigops = blkmk_count_sigops(&in[cbScriptSigLen + 1], in[cbScriptSigLen], tmpl->_bip141_sigops);
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
 	if (appended_at_offset)
 		*appended_at_offset = cbPostScriptSig;
@@ -458,7 +461,7 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	out[cbScriptSigLen] += appendsz;
 	memcpy(outExtranonce, append, appendsz);
 	
-	const int16_t sigops_counted = (tmpl->cbtxn->sigops_ - orig_scriptSig_sigops) + blkmk_count_sigops(&out[cbScriptSigLen + 1], out[cbScriptSigLen]);
+	const int16_t sigops_counted = (tmpl->cbtxn->sigops_ - orig_scriptSig_sigops) + blkmk_count_sigops(&out[cbScriptSigLen + 1], out[cbScriptSigLen], tmpl->_bip141_sigops);
 	if (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit) {
 		// Overflowed :(
 		if (out == in) {
