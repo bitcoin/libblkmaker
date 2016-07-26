@@ -489,7 +489,9 @@ char *blkmk_assemble_submission_(blktemplate_t * const tmpl, const unsigned char
 	
 	size_t blkbuf_sz = libblkmaker_blkheader_size;
 	if (incl_gentxn) {
-		blkbuf_sz += max_varint_size + tmpl->cbtxn->datasz;
+		const size_t extranoncesz = sizeof(dataid);
+		blkbuf_sz += max_varint_size /* tx count */;
+		blkbuf_sz += tmpl->cbtxn->datasz + extranoncesz;
 		if (incl_alltxn) {
 			blkbuf_sz += tmpl->txns_datasz;
 		}
