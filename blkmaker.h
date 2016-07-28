@@ -13,7 +13,7 @@ extern "C" {
 
 #define BLKMAKER_VERSION (7L)
 #define BLKMAKER_MAX_BLOCK_VERSION (0x3fffffff)
-#define BLKMAKER_MAX_PRERULES_BLOCK_VERSION (5)
+#define BLKMAKER_MAX_PRERULES_BLOCK_VERSION (4)
 
 extern const char *blkmk_supported_rules[];
 extern bool blkmk_supports_rule(const char *rulename);
