@@ -429,6 +429,64 @@ static void blktmpl_jansson_bip9() {
 	blktmpl_free(tmpl);
 }
 
+static void blktmpl_jansson_propose_check(json_t *j, const int level) {
+	const char *sa;
+	
+	j = json_array_get(json_object_get(j, "params"), 0);
+	assert((j = json_object_get(j, "data")));
+	assert((sa = json_string_value(j)));
+	assert(strlen(sa) >= 160);
+	assert(!memcmp(sa, "03000000777777a7777777a7777777a7777777a7777777a7777777a7777777a700000000", 72));
+	// Don't check merkle root
+	assert(!memcmp(&sa[136], "6d030000ff7f001d", 16));
+	// Don't check nonce
+	size_t pos = 160;
+	if (level > 0) {
+		assert(!strncmp(&sa[pos], "0401000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000", 130));
+		pos += 130;
+		if (level > 1) {
+			assert(!strcmp(&sa[pos], "01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa0022222222010010000001510000000001000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f000000000044444444010010000001510000000001000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000"));
+			pos += strlen(&sa[pos]);
+		}
+	}
+	assert(sa[pos] == '\0');
+}
+
+static void blktmpl_jansson_propose() {
+	blktemplate_t * const tmpl = blktmpl_create();
+	const char *sa;
+	json_t *j, *ja, *jb;
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"coinbaseaux\":{\"dummy\":\"deadbeef\"},\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"workid\":\"mywork\"}", simple_time_rcvd));
+	
+	assert((j = blktmpl_propose_jansson(tmpl, 0, false)));
+	check_request(j, blkmk_supported_rules, NULL);
+	
+	ja = json_array_get(json_object_get(j, "params"), 0);
+	assert((jb = json_object_get(ja, "mode")));
+	assert((sa = json_string_value(jb)));
+	assert(!strcmp(sa, "proposal"));
+	assert((jb = json_object_get(ja, "workid")));
+	assert((sa = json_string_value(jb)));
+	assert(!strcmp(sa, "mywork"));
+	blktmpl_jansson_propose_check(j, 2);
+	json_decref(j);
+	
+	tmpl->mutations |= BMAb_COINBASE;
+	assert((j = blktmpl_propose_jansson(tmpl, 0, false)));
+	check_request(j, blkmk_supported_rules, NULL);
+	blktmpl_jansson_propose_check(j, 1);
+	json_decref(j);
+	
+	tmpl->mutations |= BMAb_TRUNCATE;
+	assert((j = blktmpl_propose_jansson(tmpl, 0, false)));
+	check_request(j, blkmk_supported_rules, NULL);
+	blktmpl_jansson_propose_check(j, 0);
+	json_decref(j);
+	
+	blktmpl_free(tmpl);
+}
+
 int main() {
 	blkmk_sha256_impl = my_sha256;
 	
@@ -457,4 +515,5 @@ int main() {
 	blktmpl_jansson_bip23_mutations();
 	blktmpl_jansson_bip23_abbrev();
 	blktmpl_jansson_bip9();
+	blktmpl_jansson_propose();
 }
