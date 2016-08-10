@@ -50,6 +50,12 @@ dist_noinst_DATA = \
 	AUTHORS COPYING README \
 	example.c \
 	testinput.c
+	
+noinst_PROGRAMS = test
+test_SOURCES = test.c
+test_CFLAGS = $(libbase58_CFLAGS) $(JANSSON_CFLAGS)
+test_LDADD = $(libbase58_LIBS) libblkmaker-@LIBBLKMAKER_API_VERSION@.la libblkmaker_jansson-@LIBBLKMAKER_API_VERSION@.la $(JANSSON_LIBS)
+TESTS = test
 
 if CAN_COMPILE_EXAMPLE
 EXTRA_PROGRAMS = example
