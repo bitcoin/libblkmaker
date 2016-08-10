@@ -10,9 +10,16 @@
 #include <string.h>
 #include <time.h>
 
+#include <gcrypt.h>
+
 #include "blktemplate.h"
 #include "blkmaker.h"
 #include "blkmaker_jansson.h"
+
+static bool my_sha256(void *digest, const void *buffer, size_t length) {
+	gcry_md_hash_buffer(GCRY_MD_SHA256, digest, buffer, length);
+	return true;
+}
 
 static void capabilityname_test() {
 	for (unsigned int i = 0; i < GBT_CAPABILITY_COUNT; ++i) {
@@ -423,6 +430,8 @@ static void blktmpl_jansson_bip9() {
 }
 
 int main() {
+	blkmk_sha256_impl = my_sha256;
+	
 	puts("capabilityname");
 	capabilityname_test();
 	
