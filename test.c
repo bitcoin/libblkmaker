@@ -834,6 +834,63 @@ static void test_blkmk_get_mdata() {
 	blktmpl_free(tmpl);
 }
 
+static void test_blkmk_init_generation() {
+	blktemplate_t *tmpl;
+	bool newcb;
+	
+	tmpl = blktmpl_create();
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640}", simple_time_rcvd));
+	assert(!tmpl->cbtxn);
+	assert(blkmk_init_generation(tmpl, NULL, 0) == 640);
+	assert(tmpl->cbtxn);
+	assert(tmpl->cbtxn->datasz == 62);
+	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x02\x01\x04\xff\xff\xff\xff\x01\x80\x02\0\0\0\0\0\0\0\0\0\0\0", tmpl->cbtxn->datasz));
+	
+	newcb = false;
+	assert(!blkmk_init_generation3(tmpl, "\0", 1, &newcb));
+	
+	newcb = true;
+	assert(blkmk_init_generation3(tmpl, "\x04" "test", 5, &newcb));
+	assert(newcb);
+	assert(tmpl->cbtxn);
+	assert(tmpl->cbtxn->datasz == 67);
+	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x02\x01\x04\xff\xff\xff\xff\x01\x80\x02\0\0\0\0\0\0\x05\x04" "test\0\0\0\0", tmpl->cbtxn->datasz));
+	
+	assert(!blkmk_init_generation2(tmpl, "\0", 1, &newcb));
+	assert(!newcb);
+	
+	tmpl->mutations &= ~BMM_GENERATE;
+	newcb = true;
+	assert(!blkmk_init_generation3(tmpl, "\0", 1, &newcb));
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":40000000,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":10000000000}", simple_time_rcvd));
+	newcb = false;
+	assert(blkmk_init_generation3(tmpl, "\x04" "test", 5, &newcb));
+	assert(newcb);
+	assert(tmpl->cbtxn);
+	assert(tmpl->cbtxn->datasz == 70);
+	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x05\x04\0\x5a\x62\x02\xff\xff\xff\xff\x01\0\xe4\x0b\x54\x02\0\0\0\x05\x04" "test\0\0\0\0", tmpl->cbtxn->datasz));
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":40000000,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000000000\"},\"mutable\":[\"generation\"],\"coinbasevalue\":89064736821248}", simple_time_rcvd));
+	newcb = false;
+	assert(!blkmk_init_generation3(tmpl, "\x04" "test", 5, &newcb));
+	assert(!newcb);
+	newcb = true;
+	assert(blkmk_init_generation3(tmpl, "\x04" "test", 5, &newcb));
+	assert(newcb);
+	assert(tmpl->cbtxn);
+	assert(tmpl->cbtxn->datasz == 70);
+	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x05\x04\0\x5a\x62\x02\xff\xff\xff\xff\x01\0\x10\0\0\x01\x51\0\0\x05\x04" "test\0\0\0\0", tmpl->cbtxn->datasz));
+	
+	blktmpl_free(tmpl);
+}
+
 int main() {
 	blkmk_sha256_impl = my_sha256;
 	
@@ -880,4 +937,7 @@ int main() {
 	
 	puts("blkmk_get_mdata");
 	test_blkmk_get_mdata();
+	
+	puts("blkmk_init_generation");
+	test_blkmk_init_generation();
 }
