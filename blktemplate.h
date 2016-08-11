@@ -25,6 +25,7 @@ typedef int16_t blktime_diff_t;
 typedef uint32_t blknonce_t;
 
 #define libblkmaker_blkheader_size (80)
+#define libblkmaker_coinbase_size_minimum (4)
 #define libblkmaker_coinbase_size_limit (100)
 
 struct blktxn_t {
@@ -88,6 +89,7 @@ typedef enum {
 
 extern const char *blktmpl_capabilityname(gbt_capabilities_t);
 #define BLKTMPL_LONGEST_CAPABILITY_NAME  (16)
+// ABI FIXME: return uint32_t since "time" can yield a combination gbt_capabilities_t
 extern gbt_capabilities_t blktmpl_getcapability(const char *);
 
 
