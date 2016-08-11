@@ -134,8 +134,6 @@ typedef struct {
 	blktime_diff_t maxtimeoff;
 	blktime_t mintime;
 	blktime_diff_t mintimeoff;
-	blknonce_t minnonce;
-	blknonce_t maxnonce;
 	
 	// TEMPORARY HACK
 	libblkmaker_hash_t *_mrklbranch;

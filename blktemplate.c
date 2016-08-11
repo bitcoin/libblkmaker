@@ -88,7 +88,6 @@ blktemplate_t *blktmpl_create() {
 	tmpl->maxtime = 0xffffffff;
 	tmpl->maxtimeoff = 0x7fff;
 	tmpl->mintimeoff = -0x7fff;
-	tmpl->maxnonce = 0xffffffff;
 	tmpl->expires = 0x7fff;
 	
 	return tmpl;
