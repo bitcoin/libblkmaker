@@ -350,6 +350,17 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	if (bufsz < 76)
 		return 76;
 	
+	if (tmpl->cbtxn->datasz > cbScriptSigLen && tmpl->cbtxn->data[cbScriptSigLen] + sizeof(*out_dataid) < libblkmaker_coinbase_size_minimum) {
+		// Add some padding
+		const size_t padding_required = libblkmaker_coinbase_size_minimum - (tmpl->cbtxn->data[cbScriptSigLen] + sizeof(*out_dataid));
+		uint8_t padding[padding_required];
+		static const uint8_t opcode_nop = '\x61';
+		memset(padding, opcode_nop, padding_required);
+		if (padding_required != blkmk_append_coinbase_safe2(tmpl, padding, padding_required, 0, false)) {
+			return 0;
+		}
+	}
+	
 	unsigned char *cbuf = buf;
 	
 	my_htole32(&cbuf[0], tmpl->version);
@@ -386,6 +397,10 @@ bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t 
 	if (extranoncesz == sizeof(unsigned int))
 		// Avoid overlapping with blkmk_get_data use
 		++extranoncesz;
+	
+	if (tmpl->cbtxn->datasz > cbScriptSigLen && tmpl->cbtxn->data[cbScriptSigLen] + extranoncesz < libblkmaker_coinbase_size_minimum) {
+		extranoncesz = libblkmaker_coinbase_size_minimum - tmpl->cbtxn->data[cbScriptSigLen];
+	}
 	
 	void ** const out_branches = _out_branches;
 	void ** const out_cbtxn = _out_cbtxn;
