@@ -49,10 +49,10 @@ const char *blktmpl_capabilityname(gbt_capabilities_t caps) {
 	return NULL;
 }
 
-gbt_capabilities_t blktmpl_getcapability(const char *n) {
+uint32_t blktmpl_getcapability(const char *n) {
 	for (unsigned int i = 0; i < GBT_CAPABILITY_COUNT; ++i)
 		if (capnames[i] && !strcasecmp(n, capnames[i]))
-			return 1 << i;
+			return ((uint32_t)1) << i;
 	if (!strcasecmp(n, "time")) {
 		// multi-capability
 		return BMM_TIMEINC | BMM_TIMEDEC;
