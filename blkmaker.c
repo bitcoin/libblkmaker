@@ -62,6 +62,12 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 		return 0;
 	}
 	
+	if (!tmpl->cbvalue) {
+		// TODO: Figure it out from the existing cbtxn
+		*inout_newcb = false;
+		return 0;
+	}
+	
 	*inout_newcb = true;
 	
 	if (scriptsz >= 0xfd)
