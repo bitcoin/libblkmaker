@@ -251,6 +251,8 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
 		if ((s = parse_txn(tmpl->cbtxn, v)))
 			return s;
+	} else if (!tmpl->cbvalue) {
+		return "Missing either coinbasetxn or coinbasevalue";
 	}
 	
 	// TODO: coinbaseaux
