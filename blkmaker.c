@@ -63,6 +63,13 @@ bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz) {
 
 #define max_varint_size (9)
 
+static char varintEncode(unsigned char *, uint64_t);
+
+static uint8_t blkmk_varint_encode_size(const uint64_t n) {
+	uint8_t dummy[max_varint_size];
+	return varintEncode(dummy, n);
+}
+
 uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const script, const size_t scriptsz, bool * const inout_newcb) {
 	if (tmpl->cbtxn && !(*inout_newcb && (tmpl->mutations & BMM_GENERATE)))
 	{
@@ -134,7 +141,8 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	memset(&data[off], 0, 4);  // lock time
 	off += 4;
 	
-	if (tmpl->txns_datasz + off > tmpl->sizelimit) {
+	const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
+	if (pretx_size + tmpl->txns_datasz + off > tmpl->sizelimit) {
 		free(data);
 		return 0;
 	}
@@ -278,7 +286,8 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	if (in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz)
 		return false;
 	
-	if (tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
+	const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
+	if (pretx_size + tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
 		return false;
 	}
 	
@@ -319,7 +328,8 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 	}
 	size_t availsz = libblkmaker_coinbase_size_limit - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	{
-		const size_t current_blocksize = tmpl->cbtxn->datasz + tmpl->txns_datasz;
+		const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
+		const size_t current_blocksize = pretx_size + tmpl->cbtxn->datasz + tmpl->txns_datasz;
 		if (current_blocksize > tmpl->sizelimit) {
 			return -4;
 		}
