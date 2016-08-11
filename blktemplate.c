@@ -7,6 +7,7 @@
 
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -82,6 +83,7 @@ blktemplate_t *blktmpl_create() {
 	
 	tmpl->sigoplimit = USHRT_MAX;
 	tmpl->sizelimit = ULONG_MAX;
+	tmpl->weightlimit = INT64_MAX;
 	
 	tmpl->maxtime = 0xffffffff;
 	tmpl->maxtimeoff = 0x7fff;
