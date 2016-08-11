@@ -627,6 +627,18 @@ static void blktmpl_jansson_submitm() {
 	blktmpl_free(tmpl);
 }
 
+static void test_blkmk_supports_rule() {
+	for (const char **rule = blkmk_supported_rules; *rule; ++rule) {
+		assert(blkmk_supports_rule(*rule));
+		char important_rule[strlen(*rule) + 2];
+		important_rule[0] = '!';
+		strcpy(&important_rule[1], *rule);
+		assert(!blkmk_supports_rule(important_rule));
+	}
+	assert(!blkmk_supports_rule("foo"));
+	assert(!blkmk_supports_rule(""));
+}
+
 int main() {
 	blkmk_sha256_impl = my_sha256;
 	
@@ -658,4 +670,7 @@ int main() {
 	blktmpl_jansson_propose();
 	blktmpl_jansson_submit();
 	blktmpl_jansson_submitm();
+	
+	puts("blkmk_supports_rule");
+	test_blkmk_supports_rule();
 }
