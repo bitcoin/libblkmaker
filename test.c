@@ -639,6 +639,19 @@ static void test_blkmk_supports_rule() {
 	assert(!blkmk_supports_rule(""));
 }
 
+static void test_blkmk_address_to_script() {
+	uint8_t script[0x100];
+	
+	assert(blkmk_address_to_script(script, sizeof(script), "1QATWksNFGeUJCWBrN4g6hGM178Lovm7Wh") == 25);
+	assert(!memcmp(script, "\x76\xa9\x14\xfe\x14\xc4\xc6\x8d\x83\xda\x61\xfc\x57\x7b\x04\xcb\x6e\xcb\x6d\x31\xba\x1d\x52\x88\xac", 25));
+	
+	assert(blkmk_address_to_script(script, sizeof(script), "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy") == 23);
+	assert(!memcmp(script, "\xa9\x14\xb4\x72\xa2\x66\xd0\xbd\x89\xc1\x37\x06\xa4\x13\x2c\xcf\xb1\x6f\x7c\x3b\x9f\xcb\x87", 23));
+	
+	assert(blkmk_address_to_script(script, sizeof(script), "1BitcoinEaterAddressDontSendf59kuE") == 25);
+	assert(!memcmp(script, "\x76\xa9\x14\x75\x9d\x66\x77\x09\x1e\x97\x3b\x9e\x9d\x99\xf1\x9c\x68\xfb\xf4\x3e\x3f\x05\xf9\x88\xac", 25));
+}
+
 int main() {
 	blkmk_sha256_impl = my_sha256;
 	
@@ -673,4 +686,7 @@ int main() {
 	
 	puts("blkmk_supports_rule");
 	test_blkmk_supports_rule();
+	
+	puts("blkmk_address_to_script");
+	test_blkmk_address_to_script();
 }
