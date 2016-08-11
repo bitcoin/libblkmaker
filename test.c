@@ -22,6 +22,10 @@ static bool my_sha256(void *digest, const void *buffer, size_t length) {
 	return true;
 }
 
+static bool bad_sha256(void *digest, const void *buffer, size_t length) {
+	return false;
+}
+
 static void capabilityname_test() {
 	for (unsigned int i = 0; i < GBT_CAPABILITY_COUNT; ++i) {
 		const gbt_capabilities_t capid = (1 << i);
@@ -684,6 +688,58 @@ static void test_blkmk_x_left() {
 	blktmpl_free(tmpl);
 }
 
+static void test_blkmk_get_data() {
+	blktemplate_t *tmpl = blktmpl_create();
+	uint8_t data[76];
+	int16_t i16;
+	unsigned int dataid, first_dataid;
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"coinbaseaux\":{\"dummy\":\"deadbeef\"},\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"workid\":\"mywork\",\"mutable\":[\"submit/coinbase\",\"submit/truncate\",\"coinbase/append\"],\"expires\":32}", simple_time_rcvd));
+	
+	assert(blkmk_work_left(tmpl) > 0xf0);
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &first_dataid));
+	assert(first_dataid == 0);
+	assert(i16 == 31 || i16 == 32);
+	assert(!memcmp(data, "\x03\0\0\0\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\0\0\0\0\x51\x2a\x63\xf4\x5f\x96\xf0\x26\x9a\x2d\x23\xcc\xd9\x6b\xcf\x03\x22\xee\x4f\x60\x25\x47\x48\xe3\x0b\x89\xe2\xb5\x94\x31\xab\xa1\x6d\x03\0\0\xff\x7f\0\x1d", 76));
+	
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd + 4, &i16, &dataid));
+	assert(dataid == first_dataid + 1);
+	assert(i16 == 27 || i16 == 28);
+	assert(!memcmp(data, "\x03\0\0\0\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\0\0\0\0\x2a\x73\x99\xbc\x0a\x19\xa1\x11\x03\xfc\x3b\x8f\x4b\xe4\0\x68\x18\xea\x3f\x2a\0\xcf\x42\x8b\xd7\x09\x1c\x8d\xe2\xea\xe7\x38\x71\x03\0\0\xff\x7f\0\x1d", 76));
+	
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data) + 1, simple_time_rcvd + 8, &i16, &dataid));
+	assert(dataid == first_dataid + 2);
+	assert(i16 == 23 || i16 == 24);
+	assert(!memcmp(data, "\x03\0\0\0\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\0\0\0\0\xe2\xe4\xbc\x8e\x65\x8b\x52\x2e\xe5\xeb\x69\xd5\xe5\xd4\xa6\x25\xfd\x8f\x32\x2d\x71\x0f\xc0\xb2\x38\xe1\x71\x01\x61\x56\x2c\x2e\x75\x03\0\0\xff\x7f\0\x1d", 76));
+	
+	// Too-small buffer fails with desired buffer size
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data) - 1, simple_time_rcvd + 8, &i16, &dataid));
+	// Make sure dataid wasn't incremented for the failure
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd + 8, &i16, &dataid));
+	assert(dataid == first_dataid + 3);
+	
+	// Bad hash function should fail
+	blkmk_sha256_impl = bad_sha256;
+	assert(0 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd + 8, &i16, &dataid));
+	blkmk_sha256_impl = my_sha256;
+	
+	// No more time, fail
+	assert(0 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd + 35, &i16, &dataid));
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"coinbaseaux\":{\"dummy\":\"deadbeef\"},\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"workid\":\"mywork\",\"expires\":32}", simple_time_rcvd));
+	// Make sure a non-appendable fails the second get_data
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &first_dataid));
+	assert(first_dataid == 0);
+	assert(0 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &first_dataid));
+	
+	// TODO: ensure a scriptsig with <4 bytes cannot be produced through to get_data; but this requires a platform where sizeof(unsigned int) < 4 and no height-in-coinbase...
+	
+	blktmpl_free(tmpl);
+}
+
 int main() {
 	blkmk_sha256_impl = my_sha256;
 	
@@ -724,4 +780,7 @@ int main() {
 	
 	puts("blkmk_*_left");
 	test_blkmk_x_left();
+	
+	puts("blkmk_get_data");
+	test_blkmk_get_data();
 }
