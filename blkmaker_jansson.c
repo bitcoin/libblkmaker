@@ -286,6 +286,8 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
 		if ((s = parse_txn(tmpl->cbtxn, v)))
 			return s;
+	} else if (!tmpl->cbvalue) {
+		return "Missing either coinbasetxn or coinbasevalue";
 	}
 	
 	if ((v = json_object_get(json, "coinbaseaux")) && json_is_object(v))
@@ -383,7 +385,11 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		
 		v = json_object_get(json, "vbrequired");
 		if (v && json_is_number(v)) {
-			tmpl->vbrequired = json_number_value(v);
+			double tmpd = json_number_value(v);
+			tmpl->vbrequired = tmpd;
+			if (tmpl->vbrequired != tmpd) {
+				return "Unparsable vbrequired";
+			}
 		}
 	}
 	else
