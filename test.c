@@ -1043,6 +1043,60 @@ static void test_blkmk_init_generation() {
 	blktmpl_free(tmpl);
 }
 
+static void test_blkmk_append_coinbase_safe() {
+	blktemplate_t *tmpl;
+	static const uint8_t lots_of_zero[100] = {0};
+	
+	tmpl = blktmpl_create();
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000000000\"}}", simple_time_rcvd));
+	// Should fail because we lack coinbase/append mutability
+	assert(blkmk_append_coinbase_safe(tmpl, "", 1) <= 0);
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000000000\"},\"mutable\":[\"coinbase/append\"]}", simple_time_rcvd));
+	assert(blkmk_append_coinbase_safe(tmpl, "", 1) >= 1);
+	assert(tmpl->cbtxn);
+	assert(tmpl->cbtxn->datasz == 68);
+	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x08\x01\x04\x04\xde\xad\xbe\xef\0\x33\x33\x33\x33\x01\0\x10\0\0\x01\x51\0\0\0\0\0\0\0", tmpl->cbtxn->datasz));
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":21}", simple_time_rcvd));
+	assert(blkmk_init_generation(tmpl, NULL, 0) == 640);
+	assert(blkmk_append_coinbase_safe(tmpl, "", 1) >= 1);
+	assert(tmpl->cbtxn);
+	assert(tmpl->cbtxn->datasz == 63);
+	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x03\x01\x04\0\xff\xff\xff\xff\x01\x80\x02\0\0\0\0\0\0\0\0\0\0\0", tmpl->cbtxn->datasz));
+	
+	// With 99-byte extranonce, we're already beyond the limit
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 99, true) <= 0);
+	// This should just barely break the limit
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 100 - tmpl->cbtxn->data[41], true) <= 0);
+	// This should be okay
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 100 - tmpl->cbtxn->data[41] - 1, true) >= 1);
+	// Up to 21 sigops is okay
+	assert(blkmk_append_coinbase_safe2(tmpl, "\xae", 1, 3, true) >= 1);
+	assert(blkmk_append_coinbase_safe2(tmpl, "\xac", 1, 3, true) >= 1);
+	// But 22 should hit the limit
+	assert(blkmk_append_coinbase_safe2(tmpl, "\xac", 1, 3, true) <= 0);
+	// Non-sigop stuff is fine to continue
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 3, true) >= 1);
+	const uint8_t padsz = 100 - tmpl->cbtxn->data[41] - 3;
+	assert(blkmk_append_coinbase_safe2(tmpl, lots_of_zero, padsz, 3, true) >= padsz);
+	// One too many
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 3, true) <= 0);
+	// Becomes okay if we reduce extranonce size
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 2, true) >= 1);
+	assert(blkmk_append_coinbase_safe2(tmpl, lots_of_zero, 2, 0, true) >= 2);
+	// Totally full now
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 0, true) <= 0);
+	
+	blktmpl_free(tmpl);
+}
+
 int main() {
 	blkmk_sha256_impl = my_sha256;
 	
@@ -1093,4 +1147,7 @@ int main() {
 	
 	puts("blkmk_init_generation");
 	test_blkmk_init_generation();
+	
+	puts("blkmk_append_coinbase_safe");
+	test_blkmk_append_coinbase_safe();
 }
