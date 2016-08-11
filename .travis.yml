@@ -1,0 +1,44 @@
+os: linux
+language: c
+compiler: gcc
+sudo: false
+matrix:
+  include:
+# Normal build
+    - addons:
+        apt:
+            packages:
+            - build-essential
+            - libjansson-dev
+            - libgcrypt11-dev
+# clang
+    - compiler: clang
+      addons:
+        apt:
+            packages:
+            - build-essential
+            - libjansson-dev
+            - libgcrypt11-dev
+# w/o libgcrypt
+    - addons:
+        apt:
+            packages:
+            - build-essential
+            - libjansson-dev
+  exclude:
+    - compiler: gcc
+# TODO: Linux32 (or 64) & OS X & Win32/64 (needs libs cross-compiled)
+install:
+  - git clone git://github.com/bitcoin/libbase58 -b v0.1.4 --depth 1
+  - pushd libbase58
+  - ./autogen.sh
+  - ./configure --prefix="$HOME" $TARGET_OPTS
+  - make
+  - make check
+  - make install
+  - popd
+script:
+  - ./autogen.sh
+  - ./configure PKG_CONFIG_PATH="$HOME/lib/pkgconfig" $TARGET_OPTS $CONFIGURE_OPTS || tail -n 1000 config.log
+  - make
+  - make check
