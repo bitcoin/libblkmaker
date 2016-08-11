@@ -307,7 +307,7 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 	{
 		const size_t current_blocksize = tmpl->cbtxn->datasz + tmpl->txns_datasz;
 		if (current_blocksize > tmpl->sizelimit) {
-			return false;
+			return -4;
 		}
 		const size_t availsz2 = tmpl->sizelimit - current_blocksize;
 		if (availsz2 < availsz) {
