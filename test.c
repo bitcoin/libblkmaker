@@ -740,6 +740,100 @@ static void test_blkmk_get_data() {
 	blktmpl_free(tmpl);
 }
 
+static void test_blkmk_get_mdata() {
+	blktemplate_t *tmpl = blktmpl_create();
+	uint8_t data[76], *cbtxn, *branches;
+	size_t cbextranonceoffset, cbtxnsize;
+	int branchcount;
+	int16_t i16;
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"workid\":\"mywork\",\"mutable\":[\"submit/coinbase\",\"submit/truncate\",\"coinbase/append\"],\"expires\":99}", simple_time_rcvd));
+	
+	assert(blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, 1, false));
+	assert(!memcmp(data, "\x03\0\0\0\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\0\0\0\0", 36));
+	// Skip merkle root
+	assert(!memcmp(&data[68], "\x6d\x03\0\0\xff\x7f\0\x1d", 8));
+	assert(i16 == 98 || i16 == 99);
+	assert(cbtxnsize == 65);
+	assert(cbextranonceoffset == 49);
+	assert(!memcmp(cbtxn, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x08\x01\x04\x04\xde\xad\xbe\xef", 49));
+	assert(!memcmp(&cbtxn[50], "\x33\x33\x33\x33\x01\0\x10\0\0\x01\x51\0\0\0\0", 65-50));
+	assert(branchcount == 2);
+	assert(!memcmp(branches, "\x0f\xd2\x7c\x1c\x2c\x93\x7c\0\x21\x2d\x90\x3b\x1d\xb1\x05\xc0\xde\xce\x57\x08\x9c\x7c\x93\x80\xdd\x2c\x2f\xe6\x12\xf2\x69\x1c\x2b\x07\x3c\xb8\x85\xbf\x62\x3b\x1c\xd5\xac\xda\x81\xce\xe8\x9f\xe9\x19\x0e\x10\x85\xff\x54\x98\xc3\x33\x4c\x2c\x63\xf8\xdd\x4d", 64));
+	free(cbtxn);
+	free(branches);
+	
+	assert(blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd + 4, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, 3, false));
+	assert(!memcmp(data, "\x03\0\0\0\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\0\0\0\0", 36));
+	// Skip merkle root
+	assert(!memcmp(&data[68], "\x71\x03\0\0\xff\x7f\0\x1d", 8));
+	assert(i16 == 94 || i16 == 95);
+	assert(cbtxnsize == 67);
+	assert(cbextranonceoffset == 49);
+	assert(!memcmp(cbtxn, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x0a\x01\x04\x04\xde\xad\xbe\xef", 49));
+	assert(!memcmp(&cbtxn[52], "\x33\x33\x33\x33\x01\0\x10\0\0\x01\x51\0\0\0\0", 67-52));
+	assert(branchcount == 2);
+	assert(!memcmp(branches, "\x0f\xd2\x7c\x1c\x2c\x93\x7c\0\x21\x2d\x90\x3b\x1d\xb1\x05\xc0\xde\xce\x57\x08\x9c\x7c\x93\x80\xdd\x2c\x2f\xe6\x12\xf2\x69\x1c\x2b\x07\x3c\xb8\x85\xbf\x62\x3b\x1c\xd5\xac\xda\x81\xce\xe8\x9f\xe9\x19\x0e\x10\x85\xff\x54\x98\xc3\x33\x4c\x2c\x63\xf8\xdd\x4d", 64));
+	free(cbtxn);
+	free(branches);
+	
+	size_t sizeof_dataid = sizeof(unsigned int);
+	size_t expected_space = sizeof_dataid + 1;
+	assert(blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd + 8, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, sizeof_dataid, false));
+	assert(!memcmp(data, "\x03\0\0\0\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\x77\x77\x77\xa7\0\0\0\0", 36));
+	// Skip merkle root
+	assert(!memcmp(&data[68], "\x75\x03\0\0\xff\x7f\0\x1d", 8));
+	assert(i16 == 90 || i16 == 91);
+	assert(cbtxnsize == 64 + expected_space);
+	assert(cbextranonceoffset == 49);
+	assert(!memcmp(cbtxn, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff", 41));
+	assert(cbtxn[41] == 7 + expected_space);
+	assert(!memcmp(&cbtxn[42], "\x01\x04\x04\xde\xad\xbe\xef", 7));
+	assert(!memcmp(&cbtxn[49 + expected_space], "\x33\x33\x33\x33\x01\0\x10\0\0\x01\x51\0\0\0\0", 15));
+	assert(branchcount == 2);
+	assert(!memcmp(branches, "\x0f\xd2\x7c\x1c\x2c\x93\x7c\0\x21\x2d\x90\x3b\x1d\xb1\x05\xc0\xde\xce\x57\x08\x9c\x7c\x93\x80\xdd\x2c\x2f\xe6\x12\xf2\x69\x1c\x2b\x07\x3c\xb8\x85\xbf\x62\x3b\x1c\xd5\xac\xda\x81\xce\xe8\x9f\xe9\x19\x0e\x10\x85\xff\x54\x98\xc3\x33\x4c\x2c\x63\xf8\xdd\x4d", 64));
+	free(cbtxn);
+	free(branches);
+	
+	// If hashing fails, so must get_mdata
+	blkmk_sha256_impl = bad_sha256;
+	assert(!blkmk_get_mdata(tmpl, data, sizeof(data) - 1, simple_time_rcvd + 8, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, sizeof_dataid, false));
+	blkmk_sha256_impl = my_sha256;
+	
+	// Buffer too small must fail
+	assert(!blkmk_get_mdata(tmpl, data, sizeof(data) - 1, simple_time_rcvd + 8, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, sizeof_dataid, false));
+	
+	// Without cb append/set mutations, we must fail too
+	tmpl->mutations &= ~(BMM_CBAPPEND | BMM_CBSET);
+	assert(!blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd + 8, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, sizeof_dataid, false));
+	// ... but only one or the other should be sufficient
+	tmpl->mutations |= BMM_CBAPPEND;
+	assert(blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd + 8, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, sizeof_dataid, false));
+	free(cbtxn);
+	free(branches);
+	tmpl->mutations = (tmpl->mutations & ~BMM_CBAPPEND) | BMM_CBSET;
+	assert(blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd + 8, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, sizeof_dataid, false));
+	free(cbtxn);
+	free(branches);
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"mutable\":[\"coinbase/append\"]}", simple_time_rcvd));
+	
+	// No generation transaction, fail
+	assert(!blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, 1, false));
+	
+	// Initialising it should make us work though
+	assert(blkmk_init_generation(tmpl, NULL, 0) == 640);
+	assert(blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, 1, false));
+	assert(cbtxn[41] >= 4 /* libblkmaker_coinbase_size_minimum */);
+	free(cbtxn);
+	free(branches);
+	
+	blktmpl_free(tmpl);
+}
+
 int main() {
 	blkmk_sha256_impl = my_sha256;
 	
@@ -783,4 +877,7 @@ int main() {
 	
 	puts("blkmk_get_data");
 	test_blkmk_get_data();
+	
+	puts("blkmk_get_mdata");
+	test_blkmk_get_mdata();
 }
