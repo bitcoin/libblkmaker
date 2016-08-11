@@ -412,6 +412,7 @@ json_t *blktmpl_propose_jansson(blktemplate_t * const tmpl, const uint32_t caps,
 		goto err;
 	if (!(ja = json_string(blkhex)))
 		goto err;
+	free(blkhex);
 	if (json_object_set_new(jparams, "data", ja))
 		goto err;
 	
