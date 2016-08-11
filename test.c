@@ -205,7 +205,7 @@ static const char *blktmpl_add_jansson_str(blktemplate_t * const tmpl, const cha
 static const time_t simple_time_rcvd = 0x777;
 
 static void blktmpl_jansson_simple() {
-	blktemplate_t * const tmpl = blktmpl_create();
+	blktemplate_t *tmpl = blktmpl_create();
 	
 	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512}", simple_time_rcvd));
 	assert(tmpl->version == 2);
@@ -242,6 +242,26 @@ static void blktmpl_jansson_simple() {
 	assert(tmpl->maxtimeoff >= 60);
 	assert(tmpl->mintime <= tmpl->curtime - 60);
 	assert(tmpl->mintimeoff <= -60);
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(blktmpl_add_jansson_str(tmpl, "{\"height\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"curtime\":777,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"bits\":\"1d00ffff\",\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"coinbasevalue\":512}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\"}", simple_time_rcvd));
 	
 	blktmpl_free(tmpl);
 }
@@ -434,6 +454,138 @@ static void blktmpl_jansson_bip9() {
 	blktmpl_free(tmpl);
 }
 
+static void test_blktmpl_jansson_floaty() {
+	blktemplate_t *tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":536871040.0,\"height\":3.0,\"bits\":\"1d00ffff\",\"curtime\":777.0,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512.000,\"sigoplimit\":1000.0,\"sizelimit\":10000.0,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\"},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1.0],\"fee\":12.0,\"sigops\":4.0}],\"expires\":33.0,\"maxtime\":2113929216.0,\"maxtimeoff\":50.0,\"mintime\":800.0,\"mintimeoff\":-50.0,\"rules\":[\"csv\"],\"vbavailable\":{\"!segwit\":7.0},\"vbrequired\":128.0}", simple_time_rcvd));
+	assert(tmpl->version == 536871040);
+	assert(tmpl->height == 3);
+	assert(!memcmp(tmpl->diffbits, "\xff\xff\0\x1d", 4));
+	assert(tmpl->curtime == 777);
+	for (int i = 0; i < 7; ++i) {
+		assert(tmpl->prevblk[i] == 0x77777777);
+	}
+	assert(!tmpl->prevblk[7]);
+	assert(tmpl->cbvalue == 512);
+	
+	assert(tmpl->txncount == 2);
+	assert(tmpl->txns_datasz == 114);
+	assert(tmpl->txns_sigops == -1);
+	assert(tmpl->txns);
+	assert(tmpl->txns[0].data);
+	assert(tmpl->txns[0].datasz == 57);
+	assert(!memcmp(tmpl->txns[0].data, "\x01\0\0\0\x01\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\xaa\xaa\xaa\xaa\0\x22\x22\x22\x22\x01\0\x10\0\0\x01\x51\0\0\0\0", 57));
+	assert(tmpl->txns[0].dependscount == -1);
+	assert(tmpl->txns[0].fee_ == -1);
+	assert(tmpl->txns[0].sigops_ == -1);
+	assert(tmpl->txns[1].data);
+	assert(tmpl->txns[1].datasz == 57);
+	assert(!memcmp(tmpl->txns[1].data, "\x01\0\0\0\x01\x1c\x69\xf2\x12\xe6\x2f\x2c\xdd\x80\x93\x7c\x9c\x08\x57\xce\xde\xc0\x05\xb1\x1d\x3b\x90\x2d\x21\0\x7c\x93\x2c\x1c\x7c\xd2\x0f\0\0\0\0\0\x44\x44\x44\x44\x01\0\x10\0\0\x01\x51\0\0\0\0", 57));
+	assert(tmpl->txns[1].dependscount == 1);
+	assert(tmpl->txns[1].depends);
+	assert(tmpl->txns[1].depends[0] == 1);
+	assert(tmpl->txns[1].fee_ == 12);
+	assert(!tmpl->txns[1].required);
+	assert(tmpl->txns[1].sigops_ == 4);
+	assert(!memcmp(tmpl->txns[1].hash_, "\x8d\x7e\x01\x67\x43\x9d\xab\x18\x6e\x86\xf9\x13\xb2\x7f\x3a\xc2\x15\x67\xdd\x4e\xde\xf8\x9a\xa8\x01\x64\x99\x67\x8b\x1a\xda\x8e", 32));
+	
+	assert(tmpl->rules);
+	assert(tmpl->rules[0]);
+	assert(!strcmp(tmpl->rules[0], "csv"));
+	assert(!tmpl->rules[1]);
+	assert(!tmpl->unsupported_rule);
+	assert(tmpl->vbavailable);
+	assert(tmpl->vbavailable[0]);
+	assert(tmpl->vbavailable[0]->name);
+	assert(!strcmp(tmpl->vbavailable[0]->name, "!segwit"));
+	assert(tmpl->vbavailable[0]->bitnum == 7);
+	assert(!tmpl->vbavailable[1]);
+	assert(tmpl->vbrequired == 0x80);
+	
+	assert(tmpl->sigoplimit == 1000);
+	assert(tmpl->sizelimit == 10000);
+	assert(tmpl->expires == 33);
+	assert(tmpl->maxtime == 2113929216);
+	assert(tmpl->maxtimeoff == 50);
+	assert(tmpl->mintime == 800);
+	assert(tmpl->mintimeoff == -50);
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	// Truncate times (curtime perhaps ought to pull limits closer to it, but it's a fraction of a second anyway, so don't bother)
+	// Ignore coinbasevalue problems if we have coinbasetxn
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":2.0,\"height\":3.0,\"bits\":\"1d00ffff\",\"curtime\":777.5,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512.333,\"expires\":33.4,\"maxtime\":2113929216.6,\"maxtimeoff\":50.3,\"mintime\":800.4,\"mintimeoff\":-50.5,\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000000000\"}}", simple_time_rcvd));
+	
+	assert(tmpl->version == 2);
+	assert(tmpl->height == 3);
+	assert(!memcmp(tmpl->diffbits, "\xff\xff\0\x1d", 4));
+	assert(tmpl->curtime == 777);
+	for (int i = 0; i < 7; ++i) {
+		assert(tmpl->prevblk[i] == 0x77777777);
+	}
+	assert(!tmpl->prevblk[7]);
+	assert(!tmpl->cbvalue);
+	
+	assert(tmpl->expires == 33);
+	assert(tmpl->maxtime == 2113929216);
+	assert(tmpl->maxtimeoff == 50);
+	assert(tmpl->mintime == 800);
+	assert(tmpl->mintimeoff == -50);
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	// Most values with a fraction should fail
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2.3,\"height\":3.0,\"bits\":\"1d00ffff\",\"curtime\":777.0,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512.000}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2.0,\"height\":3.5,\"bits\":\"1d00ffff\",\"curtime\":777.0,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512.000}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2.0,\"height\":3.0,\"bits\":\"1d00ffff\",\"curtime\":777.0,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512.5}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":536871040.0,\"height\":3.0,\"bits\":\"1d00ffff\",\"curtime\":777.0,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512.000,\"rules\":[\"csv\"],\"vbavailable\":{\"!segwit\":7.2},\"vbrequired\":128.0}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":536871040.0,\"height\":3.0,\"bits\":\"1d00ffff\",\"curtime\":777.0,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512.000,\"rules\":[\"csv\"],\"vbavailable\":{\"!segwit\":7.0},\"vbrequired\":128.6}", simple_time_rcvd));
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	// Transaction-related values are optional, so it's safe to ignore them
+	// Even though they could indicate varying rules, we have BIP9 to deal with that, and don't enforce the limits when missing tx info anyway
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3.0,\"height\":3.0,\"bits\":\"1d00ffff\",\"curtime\":777.0,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512.000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\"},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1.5],\"fee\":12.3,\"sigops\":4.6}],\"sigoplimit\":4444.4,\"sizelimit\":323333.3}", simple_time_rcvd));
+	
+	assert(tmpl->version == 3);
+	assert(tmpl->height == 3);
+	
+	// These should be defaults
+	assert(tmpl->sigoplimit >= 20000);
+	assert(tmpl->sizelimit >= 1000000);
+	
+	assert(tmpl->txncount == 2);
+	assert(tmpl->txns_datasz == 114);
+	assert(tmpl->txns_sigops == -1);
+	assert(tmpl->txns);
+	assert(tmpl->txns[0].data);
+	assert(tmpl->txns[0].datasz == 57);
+	assert(!memcmp(tmpl->txns[0].data, "\x01\0\0\0\x01\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\xaa\xaa\xaa\xaa\0\x22\x22\x22\x22\x01\0\x10\0\0\x01\x51\0\0\0\0", 57));
+	assert(tmpl->txns[0].dependscount == -1);
+	assert(tmpl->txns[0].fee_ == -1);
+	assert(tmpl->txns[0].sigops_ == -1);
+	assert(tmpl->txns[1].data);
+	assert(tmpl->txns[1].datasz == 57);
+	assert(!memcmp(tmpl->txns[1].data, "\x01\0\0\0\x01\x1c\x69\xf2\x12\xe6\x2f\x2c\xdd\x80\x93\x7c\x9c\x08\x57\xce\xde\xc0\x05\xb1\x1d\x3b\x90\x2d\x21\0\x7c\x93\x2c\x1c\x7c\xd2\x0f\0\0\0\0\0\x44\x44\x44\x44\x01\0\x10\0\0\x01\x51\0\0\0\0", 57));
+	assert(tmpl->txns[1].dependscount == -1);
+	assert(tmpl->txns[1].fee_ == -1);
+	assert(tmpl->txns[1].sigops_ == -1);
+	assert(!memcmp(tmpl->txns[1].hash_, "\x8d\x7e\x01\x67\x43\x9d\xab\x18\x6e\x86\xf9\x13\xb2\x7f\x3a\xc2\x15\x67\xdd\x4e\xde\xf8\x9a\xa8\x01\x64\x99\x67\x8b\x1a\xda\x8e", 32));
+	
+	blktmpl_free(tmpl);
+}
+
 static void blktmpl_jansson_submit_data_check(const char * const sa, const int level) {
 	assert(strlen(sa) >= 160);
 	assert(!memcmp(sa, "03000000777777a7777777a7777777a7777777a7777777a7777777a7777777a700000000", 72));
@@ -468,7 +620,7 @@ static void blktmpl_jansson_propose() {
 	const char *sa;
 	json_t *j, *ja, *jb;
 	
-	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"coinbaseaux\":{\"dummy\":\"deadbeef\"},\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"workid\":\"mywork\"}", simple_time_rcvd));
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"coinbaseaux\":{\"dummy\":\"deadbeef\"},\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"workid\":\"mywork\"}", simple_time_rcvd));
 	
 	assert((j = blktmpl_propose_jansson(tmpl, 0, false)));
 	check_request(j, blkmk_supported_rules, NULL);
@@ -919,6 +1071,7 @@ int main() {
 	blktmpl_jansson_bip23_mutations();
 	blktmpl_jansson_bip23_abbrev();
 	blktmpl_jansson_bip9();
+	test_blktmpl_jansson_floaty();
 	blktmpl_jansson_propose();
 	blktmpl_jansson_submit();
 	blktmpl_jansson_submitm();
