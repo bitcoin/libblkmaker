@@ -322,7 +322,11 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		
 		v = json_object_get(json, "vbrequired");
 		if (v && json_is_number(v)) {
-			tmpl->vbrequired = json_number_value(v);
+			double tmpd = json_number_value(v);
+			tmpl->vbrequired = tmpd;
+			if (tmpl->vbrequired != tmpd) {
+				return "Unparsable vbrequired";
+			}
 		}
 	}
 	else
