@@ -126,7 +126,6 @@ unsigned long blkmk_work_left(const blktemplate_t *tmpl) {
 	if (!tmpl->version)
 		return 0;
 	if (!(tmpl->mutations & (BMM_CBAPPEND | BMM_CBSET)))
-		return 1;
+		return (tmpl->next_dataid) ? 0 : 1;
 	return UINT_MAX - tmpl->next_dataid;
-	return BLKMK_UNLIMITED_WORK_COUNT;
 }
