@@ -1040,11 +1040,25 @@ static void test_blkmk_init_generation() {
 	assert(tmpl->cbtxn->datasz == 70);
 	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x05\x04\0\x5a\x62\x02\xff\xff\xff\xff\x01\0\x10\0\0\x01\x51\0\0\x05\x04" "test\0\0\0\0", tmpl->cbtxn->datasz));
 	
+	tmpl->sizelimit = 151;
+	assert(blkmk_init_generation3(tmpl, "\x04" "test", 5, &newcb));
+	assert(!blkmk_init_generation3(tmpl, "\x05" "testx", 6, &newcb));
+	tmpl->sizelimit = 10000;
+	tmpl->sigoplimit = 1;
+	assert(blkmk_init_generation3(tmpl, "\x05" "testx", 6, &newcb));
+	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac", 7, &newcb));
+	assert(!blkmk_init_generation3(tmpl, "\x05" "testx\xac\xac", 8, &newcb));
+	tmpl->sigoplimit = 21;
+	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac\xac", 8, &newcb));
+	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac\xae", 8, &newcb));
+	assert(!blkmk_init_generation3(tmpl, "\x05" "testx\xac\xae\xac", 9, &newcb));
+	
 	blktmpl_free(tmpl);
 }
 
 static void test_blkmk_append_coinbase_safe() {
 	blktemplate_t *tmpl;
+	bool newcb;
 	static const uint8_t lots_of_zero[100] = {0};
 	
 	tmpl = blktmpl_create();
@@ -1074,25 +1088,32 @@ static void test_blkmk_append_coinbase_safe() {
 	// With 99-byte extranonce, we're already beyond the limit
 	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 99, true) <= 0);
 	// This should just barely break the limit
-	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 100 - tmpl->cbtxn->data[41], true) <= 0);
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 100 - tmpl->cbtxn->data[41], true) == 0);
 	// This should be okay
-	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 100 - tmpl->cbtxn->data[41] - 1, true) >= 1);
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 100 - tmpl->cbtxn->data[41] - 1, true) == 1);
 	// Up to 21 sigops is okay
 	assert(blkmk_append_coinbase_safe2(tmpl, "\xae", 1, 3, true) >= 1);
 	assert(blkmk_append_coinbase_safe2(tmpl, "\xac", 1, 3, true) >= 1);
 	// But 22 should hit the limit
-	assert(blkmk_append_coinbase_safe2(tmpl, "\xac", 1, 3, true) <= 0);
+	assert(blkmk_append_coinbase_safe2(tmpl, "\xac", 1, 3, true) < 0);
 	// Non-sigop stuff is fine to continue
 	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 3, true) >= 1);
 	const uint8_t padsz = 100 - tmpl->cbtxn->data[41] - 3;
-	assert(blkmk_append_coinbase_safe2(tmpl, lots_of_zero, padsz, 3, true) >= padsz);
+	assert(blkmk_append_coinbase_safe2(tmpl, lots_of_zero, padsz, 3, true) == padsz);
 	// One too many
-	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 3, true) <= 0);
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 3, true) == 0);
 	// Becomes okay if we reduce extranonce size
-	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 2, true) >= 1);
-	assert(blkmk_append_coinbase_safe2(tmpl, lots_of_zero, 2, 0, true) >= 2);
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 2, true) == 1);
+	assert(blkmk_append_coinbase_safe2(tmpl, lots_of_zero, 2, 0, true) == 2);
 	// Totally full now
-	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 0, true) <= 0);
+	assert(blkmk_append_coinbase_safe2(tmpl, "", 1, 0, true) == 0);
+	
+	newcb = true;
+	assert(blkmk_init_generation3(tmpl, NULL, 0, &newcb));
+	tmpl->sizelimit = tmpl->cbtxn->datasz + 81 + 5;
+	assert(blkmk_append_coinbase_safe2(tmpl, "\x04" "test", 5, 0, true) == 5);
+	assert(blkmk_init_generation3(tmpl, NULL, 0, &newcb));
+	assert(blkmk_append_coinbase_safe2(tmpl, "\x05" "testx", 6, 0, true) == 5);
 	
 	blktmpl_free(tmpl);
 }
