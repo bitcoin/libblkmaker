@@ -379,6 +379,7 @@ bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t 
 		&& tmpl->cbtxn
 		&& blkmk_build_merkle_branches(tmpl)
 		&& bufsz >= 76
+		&& (tmpl->mutations & (BMM_CBAPPEND | BMM_CBSET))
 	))
 		return false;
 	
