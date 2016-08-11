@@ -652,6 +652,38 @@ static void test_blkmk_address_to_script() {
 	assert(!memcmp(script, "\x76\xa9\x14\x75\x9d\x66\x77\x09\x1e\x97\x3b\x9e\x9d\x99\xf1\x9c\x68\xfb\xf4\x3e\x3f\x05\xf9\x88\xac", 25));
 }
 
+static void test_blkmk_x_left() {
+	blktemplate_t *tmpl = blktmpl_create();
+	uint8_t data[76];
+	int16_t i16;
+	unsigned int dataid, orig_work_left;
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"transactions\":[],\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"expires\":44}", simple_time_rcvd));
+	
+	assert(blkmk_work_left(tmpl) == 1);
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &dataid));
+	assert(blkmk_work_left(tmpl) == 0);
+	
+	assert(blkmk_time_left(tmpl, simple_time_rcvd) == 44);
+	assert(blkmk_time_left(tmpl, simple_time_rcvd + 1) == 43);
+	assert(blkmk_time_left(tmpl, simple_time_rcvd + 43) == 1);
+	assert(blkmk_time_left(tmpl, simple_time_rcvd + 50) == 0);
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"transactions\":[],\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"mutable\":[\"coinbase/append\"]}", simple_time_rcvd));
+	
+	orig_work_left = blkmk_work_left(tmpl);
+	assert(orig_work_left > 0xf0);
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &dataid));
+	assert(blkmk_work_left(tmpl) == orig_work_left - 1);
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &dataid));
+	assert(blkmk_work_left(tmpl) == orig_work_left - 2);
+	
+	blktmpl_free(tmpl);
+}
+
 int main() {
 	blkmk_sha256_impl = my_sha256;
 	
@@ -689,4 +721,7 @@ int main() {
 	
 	puts("blkmk_address_to_script");
 	test_blkmk_address_to_script();
+	
+	puts("blkmk_*_left");
+	test_blkmk_x_left();
 }
