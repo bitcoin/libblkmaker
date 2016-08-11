@@ -153,6 +153,17 @@ int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz, 
 	return sigops;
 }
 
+static int64_t blkmk_calc_gentx_weight(const void * const data, const size_t datasz) {
+	return (datasz * 4) + 2 /* marker & flag */ + 1 /* witness stack count */ + 1 /* stack item size */ + 32 /* stack item: nonce */;
+}
+
+static int64_t blktxn_set_gentx_weight(struct blktxn_t * const gentx) {
+	if (gentx->weight < 0) {
+		gentx->weight = blkmk_calc_gentx_weight(gentx->data, gentx->datasz);
+	}
+	return gentx->weight;
+}
+
 uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const script, const size_t scriptsz, bool * const inout_newcb) {
 	if (tmpl->cbtxn && !(*inout_newcb && (tmpl->mutations & BMM_GENERATE)))
 	{
@@ -225,7 +236,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	off += 4;
 	
 	const int16_t sigops_counted = blkmk_count_sigops(script, scriptsz, tmpl->_bip141_sigops);
-	const int64_t gentx_weight = (off * 4) + 2 /* marker & flag */ + 1 /* witness stack count */ + 1 /* stack item size */ + 32 /* stack item: nonce */ ;
+	const int64_t gentx_weight = blkmk_calc_gentx_weight(data, off);
 	if (tmpl->txns_datasz + off > tmpl->sizelimit
 	 || (tmpl->txns_weight >= 0 && tmpl->txns_weight + gentx_weight > tmpl->weightlimit)
 	 || (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit)) {
@@ -446,7 +457,7 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 		return false;
 	}
 	
-	if (tmpl->cbtxn->weight + tmpl->txns_weight + (appendsz * 4) > tmpl->weightlimit) {
+	if (tmpl->txns_weight >= 0 && (blktxn_set_gentx_weight(tmpl->cbtxn) + tmpl->txns_weight + (appendsz * 4) > tmpl->weightlimit)) {
 		return false;
 	}
 	
@@ -512,8 +523,8 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 			availsz = availsz2;
 		}
 	}
-	{
-		const size_t current_blockweight = tmpl->cbtxn->weight + tmpl->txns_weight;
+	if (tmpl->txns_weight >= 0) {
+		const size_t current_blockweight = blktxn_set_gentx_weight(tmpl->cbtxn) + tmpl->txns_weight;
 		if (current_blockweight > tmpl->weightlimit) {
 			return false;
 		}
