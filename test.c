@@ -554,6 +554,79 @@ static void blktmpl_jansson_submit() {
 	blktmpl_free(tmpl);
 }
 
+static void blktmpl_jansson_submitm() {
+	blktemplate_t * const tmpl = blktmpl_create();
+	const char *sa;
+	uint8_t data[76], *cbtxn, *branches, extranonce[10];
+	size_t cbextranonceoffset, cbtxnsize;
+	int branchcount;
+	int16_t i16;
+	json_t *j, *ja, *jb, *jc;
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"coinbaseaux\":{\"dummy\":\"deadbeef\"},\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"workid\":\"mywork\",\"mutable\":[\"submit/coinbase\",\"submit/truncate\",\"coinbase/append\"]}", simple_time_rcvd));
+	
+	assert(blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, 1, false));
+	free(cbtxn);
+	free(branches);
+	memset(&data[36], '\xee', 32);  // merkle root, must be provided by caller
+	
+	extranonce[0] = 11;
+	assert((j = blkmk_submitm_jansson(tmpl, data, extranonce, 1, 0x12345678, false)));
+	assert(json_object_get(j, "id"));
+	assert((ja = json_object_get(j, "method")));
+	assert((sa = json_string_value(ja)));
+	assert(!strcmp(sa, "submitblock"));
+	assert((ja = json_object_get(j, "params")));
+	assert(json_is_array(ja));
+	assert(json_array_size(ja) >= 2);
+	assert((sa = json_string_value(json_array_get(ja, 0))));
+	blktmpl_jansson_submit_data_check(sa, -1);
+	assert(!strcmp(&sa[160], "0401000000010000000000000000000000000000000000000000000000000000000000000000ffffffff08010404deadbeef0b333333330100100000015100000000"));
+	assert(json_is_object((jb = json_array_get(ja, 1))));
+	assert((jc = json_object_get(jb, "workid")));
+	assert((sa = json_string_value(jc)));
+	assert(!strcmp(sa, "mywork"));
+	json_decref(j);
+	
+	extranonce[0] = 22;
+	assert((j = blkmk_submitm_jansson(tmpl, data, extranonce, 1, 0x12345678, true)));
+	assert((ja = json_object_get(j, "params")));
+	assert(json_is_array(ja));
+	assert(json_array_size(ja) >= 2);
+	assert((sa = json_string_value(json_array_get(ja, 0))));
+	blktmpl_jansson_submit_data_check(sa, -1);
+	assert(!strcmp(&sa[160], "0401000000010000000000000000000000000000000000000000000000000000000000000000ffffffff08010404deadbeef1633333333010010000001510000000001000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa0022222222010010000001510000000001000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f000000000044444444010010000001510000000001000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000"));
+	json_decref(j);
+	
+	assert(blkmk_get_mdata(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &cbtxn, &cbtxnsize, &cbextranonceoffset, &branchcount, &branches, 3, false));
+	free(cbtxn);
+	free(branches);
+	
+	extranonce[0] = 0x11;
+	extranonce[1] = 0x22;
+	extranonce[2] = 0x33;
+	assert((j = blkmk_submitm_jansson(tmpl, data, extranonce, 3, 0x12345678, false)));
+	assert((ja = json_object_get(j, "params")));
+	assert(json_is_array(ja));
+	assert(json_array_size(ja) >= 2);
+	assert((sa = json_string_value(json_array_get(ja, 0))));
+	blktmpl_jansson_submit_data_check(sa, -1);
+	assert(!strcmp(&sa[160], "0401000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0a010404deadbeef112233333333330100100000015100000000"));
+	json_decref(j);
+	
+	extranonce[2] = 0xed;
+	assert((j = blkmk_submitm_jansson(tmpl, data, extranonce, 3, 0x12345678, true)));
+	assert((ja = json_object_get(j, "params")));
+	assert(json_is_array(ja));
+	assert(json_array_size(ja) >= 2);
+	assert((sa = json_string_value(json_array_get(ja, 0))));
+	blktmpl_jansson_submit_data_check(sa, -1);
+	assert(!strcmp(&sa[160], "0401000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0a010404deadbeef1122ed33333333010010000001510000000001000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa0022222222010010000001510000000001000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f000000000044444444010010000001510000000001000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000"));
+	json_decref(j);
+	
+	blktmpl_free(tmpl);
+}
+
 int main() {
 	blkmk_sha256_impl = my_sha256;
 	
@@ -584,4 +657,5 @@ int main() {
 	blktmpl_jansson_bip9();
 	blktmpl_jansson_propose();
 	blktmpl_jansson_submit();
+	blktmpl_jansson_submitm();
 }
