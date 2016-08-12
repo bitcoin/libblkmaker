@@ -1,3 +1,10 @@
+*.gcov
+*.gcda
+*.gcno
+vgcore*
+core*
+*.orig
+*.rej
 *~
 *.so
 *.o
