@@ -783,6 +783,48 @@ static void blktmpl_jansson_submitm() {
 	blktmpl_free(tmpl);
 }
 
+static void test_blkmk_varint_encode_internal(const unsigned long txncount, const char * const expected, const size_t expectedsz) {
+	blktemplate_t * const tmpl = blktmpl_create();
+	const char *sa;
+	uint8_t data[76];
+	int16_t i16;
+	unsigned int dataid;
+	json_t *j, *ja, *jb;
+	
+	j = json_loads("{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"transactions\":[{\"data\":\"01\"}],\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"mutable\":[\"submit/coinbase\"]}", 0, NULL);
+	assert(j);
+	assert((ja = json_object_get(j, "transactions")));
+	assert((jb = json_array_get(ja, 0)));
+	for (unsigned int i = 2; i < txncount; ++i) {
+		assert(!json_array_append(ja, jb));
+	}
+	assert(json_array_size(ja) == txncount - 1);
+	assert(!blktmpl_add_jansson(tmpl, j, simple_time_rcvd));
+	json_decref(j);
+	
+	assert(76 == blkmk_get_data(tmpl, data, sizeof(data), simple_time_rcvd, &i16, &dataid));
+	
+	assert((j = blkmk_submit_jansson(tmpl, data, 0, 0x12345678)));
+	assert((ja = json_object_get(j, "params")));
+	assert(json_is_array(ja));
+	assert(json_array_size(ja) >= 1);
+	assert((sa = json_string_value(json_array_get(ja, 0))));
+	blktmpl_jansson_submit_data_check(sa, -1);
+	assert(!memcmp(&sa[160], expected, expectedsz));  // tx count + gentx version
+	json_decref(j);
+	
+	blktmpl_free(tmpl);
+}
+
+static void test_blkmk_varint_encode() {
+	test_blkmk_varint_encode_internal(4, "0401000000", 10);
+	test_blkmk_varint_encode_internal(0xfc, "fc01000000", 10);
+	test_blkmk_varint_encode_internal(0xfd, "fdfd0001000000", 14);
+	test_blkmk_varint_encode_internal(0xffff, "fdffff01000000", 14);
+	test_blkmk_varint_encode_internal(0x10000, "fe0000010001000000", 18);
+	// TODO: Find a way to test 64-bit and upper 32-bit
+}
+
 static void test_blkmk_supports_rule() {
 	for (const char **rule = blkmk_supported_rules; *rule; ++rule) {
 		assert(blkmk_supports_rule(*rule));
@@ -1150,6 +1192,9 @@ int main() {
 	blktmpl_jansson_propose();
 	blktmpl_jansson_submit();
 	blktmpl_jansson_submitm();
+	
+	puts("blkmk_varint_encode");
+	test_blkmk_varint_encode();
 	
 	puts("blkmk_supports_rule");
 	test_blkmk_supports_rule();
