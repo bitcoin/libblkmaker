@@ -135,6 +135,17 @@ json_t *blktmpl_request_jansson(const uint32_t caps, const char * const lpid) {
 	tmpl->key = tmp;  \
 } while(0)
 
+#define GETNUM_T(key, type)  do {  \
+	GET(key, number);                       \
+	const double tmpd = json_number_value(v);  \
+	const type tmp = tmpd;  \
+	/* This checks if it's merely being truncated, and tolerates it */ \
+	if (tmpd != tmp && !((tmpd < 0) ? (tmpd < tmp && tmpd + 1 > tmp) : (tmpd > tmp && tmpd - 1 < tmp))) {  \
+		return "Invalid number value for '" #key "'";  \
+	}  \
+	tmpl->key = tmp;  \
+} while(0)
+
 #define GETNUM_O2(key, skey, type)  do {  \
 	if ((v = json_object_get(json, #skey)) && json_is_number(v)) {  \
 		const double tmpd = json_number_value(v);  \
@@ -146,6 +157,17 @@ json_t *blktmpl_request_jansson(const uint32_t caps, const char * const lpid) {
 } while(0)
 
 #define GETNUM_O(key, type)  GETNUM_O2(key, key, type)
+
+#define GETNUM_OT(key, type)  do {  \
+	if ((v = json_object_get(json, #key)) && json_is_number(v)) {  \
+		const double tmpd = json_number_value(v);  \
+		const type tmp = tmpd;  \
+		/* This checks if it's merely being truncated, and tolerates it */ \
+		if (tmpd == tmp || ((tmpd < 0) ? (tmpd < tmp && tmpd + 1 > tmp) : (tmpd > tmp && tmpd - 1 < tmp))) {  \
+			tmpl->key = tmp;  \
+		}  \
+	}  \
+} while(0)
 
 #define GETSTR(key, skey)  do {  \
 	if ((v = json_object_get(json, #key)) && json_is_string(v))  \
@@ -300,7 +322,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	GETHEX(bits, diffbits);
 	my_flip(tmpl->diffbits, 4);
-	GETNUM(curtime, blktime_t);
+	GETNUM_T(curtime, blktime_t);
 	GETNUM(height, blkheight_t);
 	GETHEX(previousblockhash, prevblk);
 	my_flip(tmpl->prevblk, 32);
@@ -377,7 +399,11 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		
 		v = json_object_get(json, "vbrequired");
 		if (v && json_is_number(v)) {
-			tmpl->vbrequired = json_number_value(v);
+			double tmpd = json_number_value(v);
+			tmpl->vbrequired = tmpd;
+			if (tmpl->vbrequired != tmpd) {
+				return "Unparsable vbrequired";
+			}
 		}
 	}
 	else
@@ -394,11 +420,11 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	
 	GETSTR(workid, workid);
 	
-	GETNUM_O(expires, int16_t);
-	GETNUM_O(maxtime, blktime_t);
-	GETNUM_O(maxtimeoff, blktime_diff_t);
-	GETNUM_O(mintime, blktime_t);
-	GETNUM_O(mintimeoff, blktime_diff_t);
+	GETNUM_OT(expires, int16_t);
+	GETNUM_OT(maxtime, blktime_t);
+	GETNUM_OT(maxtimeoff, blktime_diff_t);
+	GETNUM_OT(mintime, blktime_t);
+	GETNUM_OT(mintimeoff, blktime_diff_t);
 	
 	GETSTR(longpollid, lp.id);
 	GETSTR(longpolluri, lp.uri);
@@ -438,6 +464,8 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
 		if ((s = parse_txn(tmpl->cbtxn, v, 0)))
 			return s;
+	} else if (!tmpl->cbvalue) {
+		return "Missing either coinbasetxn or coinbasevalue";
 	}
 	
 	if ((v = json_object_get(json, "coinbaseaux")) && json_is_object(v))
@@ -508,6 +536,7 @@ json_t *blktmpl_propose_jansson(blktemplate_t * const tmpl, const uint32_t caps,
 		goto err;
 	if (!(ja = json_string(blkhex)))
 		goto err;
+	free(blkhex);
 	if (json_object_set_new(jparams, "data", ja))
 		goto err;
 	

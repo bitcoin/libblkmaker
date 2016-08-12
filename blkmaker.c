@@ -119,6 +119,11 @@ char varintEncode(unsigned char *out, uint64_t n) {
 	return L;
 }
 
+static uint8_t blkmk_varint_encode_size(const uint64_t n) {
+	uint8_t dummy[max_varint_size];
+	return varintEncode(dummy, n);
+}
+
 static
 int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz, const bool bip141) {
 	int16_t sigops = 0;
@@ -235,9 +240,10 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	memset(&data[off], 0, 4);  // lock time
 	off += 4;
 	
+	const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
 	const int16_t sigops_counted = blkmk_count_sigops(script, scriptsz, tmpl->_bip141_sigops);
 	const int64_t gentx_weight = blkmk_calc_gentx_weight(data, off);
-	if (tmpl->txns_datasz + off > tmpl->sizelimit
+	if (pretx_size + tmpl->txns_datasz + off > tmpl->sizelimit
 	 || (tmpl->txns_weight >= 0 && tmpl->txns_weight + gentx_weight > tmpl->weightlimit)
 	 || (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit)) {
 		free(data);
@@ -320,34 +326,44 @@ bool blkmk_build_merkle_branches(blktemplate_t * const tmpl)
 	}
 	
 	branches = malloc(branchcount * sizeof(*branches));
+	if (!branches) {
+		return false;
+	}
 	
 	size_t hashcount = tmpl->txncount + 1;
-	unsigned char hashes[(hashcount + 1) * 32];
+	libblkmaker_hash_t * const hashes = malloc((hashcount + 1) * sizeof(*hashes));  // +1 for when the last needs duplicating
+	if (!hashes) {
+		free(branches);
+		return false;
+	}
 	
 	for (i = 0; i < tmpl->txncount; ++i)
 	{
 		struct blktxn_t * const txn = &tmpl->txns[i];
 		txnhash_t * const txid = txn->txid ? txn->txid : txn->hash_;
-		memcpy(&hashes[0x20 * (i + 1)], txid, 0x20);
+		memcpy(&hashes[i + 1], txid, sizeof(*hashes));
 	}
 	
 	for (i = 0; i < branchcount; ++i)
 	{
-		memcpy(&branches[i], &hashes[0x20], 0x20);
+		memcpy(&branches[i], &hashes[1], sizeof(*hashes));
 		if (hashcount % 2)
 		{
-			memcpy(&hashes[32 * hashcount], &hashes[32 * (hashcount - 1)], 32);
+			memcpy(&hashes[hashcount], &hashes[hashcount - 1], sizeof(*hashes));
 			++hashcount;
 		}
 		for (size_t i = 2; i < hashcount; i += 2)
 			// This is where we overlap input and output, on the first pair
-			if (!dblsha256(&hashes[i / 2 * 32], &hashes[32 * i], 64))
+			if (!dblsha256(&hashes[i / 2], &hashes[i], sizeof(*hashes) * 2))
 			{
 				free(branches);
+				free(hashes);
 				return false;
 			}
 		hashcount /= 2;
 	}
+	
+	free(hashes);
 	
 	tmpl->_mrklbranch = branches;
 	tmpl->_mrklbranchcount = branchcount;
@@ -453,7 +469,8 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	if (in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz)
 		return false;
 	
-	if (tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
+	const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
+	if (pretx_size + tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
 		return false;
 	}
 	
@@ -514,9 +531,10 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 	}
 	size_t availsz = libblkmaker_coinbase_size_limit - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	{
-		const size_t current_blocksize = tmpl->cbtxn->datasz + tmpl->txns_datasz;
+		const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
+		const size_t current_blocksize = pretx_size + tmpl->cbtxn->datasz + tmpl->txns_datasz;
 		if (current_blocksize > tmpl->sizelimit) {
-			return false;
+			return -4;
 		}
 		const size_t availsz2 = tmpl->sizelimit - current_blocksize;
 		if (availsz2 < availsz) {
@@ -684,6 +702,17 @@ size_t blkmk_get_data(blktemplate_t *tmpl, void *buf, size_t bufsz, time_t useti
 	if (bufsz < 76)
 		return 76;
 	
+	if (tmpl->cbtxn->datasz > cbScriptSigLen && tmpl->cbtxn->data[cbScriptSigLen] + sizeof(*out_dataid) < libblkmaker_coinbase_size_minimum) {
+		// Add some padding
+		const size_t padding_required = libblkmaker_coinbase_size_minimum - (tmpl->cbtxn->data[cbScriptSigLen] + sizeof(*out_dataid));
+		uint8_t padding[padding_required];
+		static const uint8_t opcode_nop = '\x61';
+		memset(padding, opcode_nop, padding_required);
+		if (padding_required != blkmk_append_coinbase_safe2(tmpl, padding, padding_required, 0, false)) {
+			return 0;
+		}
+	}
+	
 	unsigned char *cbuf = buf;
 	
 	*out_dataid = tmpl->next_dataid++;
@@ -701,12 +730,17 @@ bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t 
 		&& tmpl->cbtxn
 		&& blkmk_build_merkle_branches(tmpl)
 		&& bufsz >= 76
+		&& (tmpl->mutations & (BMM_CBAPPEND | BMM_CBSET))
 	))
 		return false;
 	
 	if (extranoncesz == sizeof(unsigned int))
 		// Avoid overlapping with blkmk_get_data use
 		++extranoncesz;
+	
+	if (tmpl->cbtxn->datasz > cbScriptSigLen && tmpl->cbtxn->data[cbScriptSigLen] + extranoncesz < libblkmaker_coinbase_size_minimum) {
+		extranoncesz = libblkmaker_coinbase_size_minimum - tmpl->cbtxn->data[cbScriptSigLen];
+	}
 	
 	void ** const out_branches = _out_branches;
 	void ** const out_cbtxn = _out_cbtxn;
@@ -758,9 +792,8 @@ unsigned long blkmk_work_left(const blktemplate_t *tmpl) {
 	if (!tmpl->version)
 		return 0;
 	if (!(tmpl->mutations & (BMM_CBAPPEND | BMM_CBSET)))
-		return 1;
+		return (tmpl->next_dataid) ? 0 : 1;
 	return UINT_MAX - tmpl->next_dataid;
-	return BLKMK_UNLIMITED_WORK_COUNT;
 }
 
 static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, const unsigned char * const data, const void * const extranonce, const size_t extranoncesz, blknonce_t nonce, const bool foreign)
@@ -782,10 +815,11 @@ static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, con
 		return NULL;
 	}
 	
-	memcpy(blk, data, 76);
+	const size_t header_before_nonce_sz = libblkmaker_blkheader_size - sizeof(nonce);
+	memcpy(blk, data, header_before_nonce_sz);
 	nonce = htonl(nonce);
-	memcpy(&blk[76], &nonce, 4);
-	size_t offs = 80;
+	memcpy(&blk[header_before_nonce_sz], &nonce, sizeof(nonce));
+	size_t offs = libblkmaker_blkheader_size;
 	
 	if (incl_gentxn) {
 		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);

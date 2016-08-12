@@ -27,7 +27,7 @@ static const char *capnames[] = {
 	
 	"coinbase/append",
 	"coinbase",
-	"generate",
+	"generation",
 	"time/increment",
 	"time/decrement",
 	"transactions/add",
@@ -50,10 +50,14 @@ const char *blktmpl_capabilityname(gbt_capabilities_t caps) {
 	return NULL;
 }
 
-gbt_capabilities_t blktmpl_getcapability(const char *n) {
+uint32_t blktmpl_getcapability(const char *n) {
 	for (unsigned int i = 0; i < GBT_CAPABILITY_COUNT; ++i)
 		if (capnames[i] && !strcasecmp(n, capnames[i]))
-			return 1 << i;
+			return ((uint32_t)1) << i;
+	if (!strcasecmp(n, "time")) {
+		// multi-capability
+		return BMM_TIMEINC | BMM_TIMEDEC;
+	}
 	if (!strcasecmp(n, "transactions"))
 		return BMM_TXNADD;  // Odd one as it's overloaded w/"transactions/add" per spec
 	return 0;
@@ -88,7 +92,6 @@ blktemplate_t *blktmpl_create() {
 	tmpl->maxtime = 0xffffffff;
 	tmpl->maxtimeoff = 0x7fff;
 	tmpl->mintimeoff = -0x7fff;
-	tmpl->maxnonce = 0xffffffff;
 	tmpl->expires = 0x7fff;
 	
 	return tmpl;
