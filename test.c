@@ -1057,6 +1057,19 @@ static void test_blkmk_get_mdata() {
 	blktmpl_free(tmpl);
 }
 
+static const void *my_memmemr(const void * const haystack_p, const size_t haystacklen, const void * const needle, const size_t needlelen) {
+	if (needlelen > haystacklen)
+		return NULL;
+	const uint8_t * const haystack = haystack_p, *p;
+	for (ssize_t i = haystacklen - needlelen; i >= 0; --i) {
+		p = &haystack[i];
+		if (!memcmp(p, needle, needlelen)) {
+			return p;
+		}
+	}
+	return NULL;
+}
+
 static void test_blkmk_init_generation() {
 	blktemplate_t *tmpl;
 	bool newcb;
@@ -1085,6 +1098,25 @@ static void test_blkmk_init_generation() {
 	tmpl->mutations &= ~BMM_GENERATE;
 	newcb = true;
 	assert(!blkmk_init_generation3(tmpl, "\0", 1, &newcb));
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":40000000,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"coinbaseaux\":{\"dummy\":\"aabbccddeeff0011\"}}", simple_time_rcvd));
+	assert(blkmk_init_generation(tmpl, NULL, 0) == 640);
+	assert(my_memmemr(&tmpl->cbtxn->data[42], tmpl->cbtxn->data[41], "\xaa\xbb\xcc\xdd\xee\xff\0\x11", 8));
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":128,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"coinbaseaux\":{\"dummy\":\"aabbccddeeff0011aabbccddeeff0011aabbccddeeff0011aabbccddeeff0011aabbccddeeff0011aabbccddeeff0011aabbccddeeff0011aabbccddeeff0011aabbccddeeff0011aabbccddeeff0011aabbccddeeff0011aabbccddeeff001199\"}}", simple_time_rcvd));
+	assert(!blkmk_init_generation(tmpl, NULL, 0));
+	tmpl->height = 4;
+	assert(blkmk_init_generation(tmpl, NULL, 0) == 640);
+	tmpl->cbvalue = 0;
+	newcb = true;
+	// Unknown cbvalue needs to either fail, or figure it out from an existing cbtxn (which we don't support yet)
+	assert(!blkmk_init_generation3(tmpl, NULL, 0, &newcb));
 	
 	blktmpl_free(tmpl);
 	tmpl = blktmpl_create();
