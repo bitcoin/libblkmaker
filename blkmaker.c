@@ -162,30 +162,42 @@ bool blkmk_build_merkle_branches(blktemplate_t * const tmpl)
 	}
 	
 	branches = malloc(branchcount * sizeof(*branches));
+	if (!branches) {
+		return false;
+	}
 	
 	size_t hashcount = tmpl->txncount + 1;
-	unsigned char hashes[(hashcount + 1) * 32];
+	libblkmaker_hash_t * const hashes = malloc((hashcount + 1) * sizeof(*hashes));  // +1 for when the last needs duplicating
+	if (!hashes) {
+		free(branches);
+		return false;
+	}
 	
 	for (i = 0; i < tmpl->txncount; ++i)
-		memcpy(&hashes[0x20 * (i + 1)], tmpl->txns[i].hash_, 0x20);
+	{
+		memcpy(&hashes[i + 1], tmpl->txns[i].hash_, sizeof(*hashes));
+	}
 	
 	for (i = 0; i < branchcount; ++i)
 	{
-		memcpy(&branches[i], &hashes[0x20], 0x20);
+		memcpy(&branches[i], &hashes[1], sizeof(*hashes));
 		if (hashcount % 2)
 		{
-			memcpy(&hashes[32 * hashcount], &hashes[32 * (hashcount - 1)], 32);
+			memcpy(&hashes[hashcount], &hashes[hashcount - 1], sizeof(*hashes));
 			++hashcount;
 		}
 		for (size_t i = 2; i < hashcount; i += 2)
 			// This is where we overlap input and output, on the first pair
-			if (!dblsha256(&hashes[i / 2 * 32], &hashes[32 * i], 64))
+			if (!dblsha256(&hashes[i / 2], &hashes[i], sizeof(*hashes) * 2))
 			{
 				free(branches);
+				free(hashes);
 				return false;
 			}
 		hashcount /= 2;
 	}
+	
+	free(hashes);
 	
 	tmpl->_mrklbranch = branches;
 	tmpl->_mrklbranchcount = branchcount;
