@@ -265,6 +265,12 @@ static void blktmpl_jansson_simple() {
 	blktmpl_free(tmpl);
 	tmpl = blktmpl_create();
 	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\"}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"previousblockhash\":\"0??0000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512}", simple_time_rcvd));
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	assert(blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"previousblockhash\":\"00000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512}", simple_time_rcvd));
 	
 	blktmpl_free(tmpl);
 }
@@ -272,7 +278,7 @@ static void blktmpl_jansson_simple() {
 static void blktmpl_jansson_bip22_required() {
 	blktemplate_t * const tmpl = blktmpl_create();
 	
-	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaaaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62f2cdd80937c9c0857cedec005b11d3b902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"coinbaseaux\":{\"dummy\":\"deadbeef\"},\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"workid\":\"mywork\"}", simple_time_rcvd));
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasevalue\":640,\"sigoplimit\":100,\"sizelimit\":1000,\"transactions\":[{\"data\":\"01000000019999999999999999999999999999999999999999999999999999999999999999aaaAaaaa00222222220100100000015100000000\",\"required\":true},{\"hash\":\"8eda1a8b67996401a89af8de4edd6715c23a7fb213f9866e18ab9d4367017e8d\",\"data\":\"01000000011c69f212e62F2cdd80937c9c0857cEDeC005b11d3B902d21007c932c1c7cd20f0000000000444444440100100000015100000000\",\"depends\":[1],\"fee\":12,\"required\":false,\"sigops\":4},{\"data\":\"01000000010099999999999999999999999999999999999999999999999999999999999999aaaaaaaa00555555550100100000015100000000\"}],\"coinbaseaux\":{\"dummy\":\"deadbeef\"},\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef333333330100100000015100000000\"},\"workid\":\"mywork\"}", simple_time_rcvd));
 	assert(tmpl->version == 3);
 	assert(tmpl->height == 4);
 	assert(!memcmp(tmpl->diffbits, "\xff\x7f\0\x1d", 4));
