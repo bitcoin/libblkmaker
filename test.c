@@ -848,6 +848,35 @@ static void test_blkmk_address_to_script() {
 	
 	assert(blkmk_address_to_script(script, sizeof(script), "1BitcoinEaterAddressDontSendf59kuE") == 25);
 	assert(!memcmp(script, "\x76\xa9\x14\x75\x9d\x66\x77\x09\x1e\x97\x3b\x9e\x9d\x99\xf1\x9c\x68\xfb\xf4\x3e\x3f\x05\xf9\x88\xac", 25));
+	
+	assert(blkmk_address_to_script(script, 25, "1QATWksNFGeUJCWBrN4g6hGM178Lovm7Wh") == 25);
+	assert(!memcmp(script, "\x76\xa9\x14\xfe\x14\xc4\xc6\x8d\x83\xda\x61\xfc\x57\x7b\x04\xcb\x6e\xcb\x6d\x31\xba\x1d\x52\x88\xac", 25));
+	
+	assert(blkmk_address_to_script(script, 23, "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy") == 23);
+	assert(!memcmp(script, "\xa9\x14\xb4\x72\xa2\x66\xd0\xbd\x89\xc1\x37\x06\xa4\x13\x2c\xcf\xb1\x6f\x7c\x3b\x9f\xcb\x87", 23));
+	
+	assert(blkmk_address_to_script(script, 25, "1BitcoinEaterAddressDontSendf59kuE") == 25);
+	assert(!memcmp(script, "\x76\xa9\x14\x75\x9d\x66\x77\x09\x1e\x97\x3b\x9e\x9d\x99\xf1\x9c\x68\xfb\xf4\x3e\x3f\x05\xf9\x88\xac", 25));
+	
+	// Missing last letter
+	assert(!blkmk_address_to_script(script, sizeof(script), "1QATWksNFGeUJCWBrN4g6hGM178Lovm7W"));
+	// Extra letters/symbols
+	assert(!blkmk_address_to_script(script, sizeof(script), "1QATWksNFGeUJCWBrN4g6hGM178Lovm7Whz"));
+	assert(!blkmk_address_to_script(script, sizeof(script), "1QATWksNFGeUJCWBrN4g6hGM178Lovm7Wh\xff"));
+	assert(!blkmk_address_to_script(script, sizeof(script), "1QATWksNFGeUJCWBrN4g6hGM178Lovm7Wh\x01"));
+	assert(!blkmk_address_to_script(script, sizeof(script), "1QATWksNFGeUJCWBrN4g6hGM178Lovm7Wh/"));
+	// Missing last byte (decoded)
+	assert(!blkmk_address_to_script(script, sizeof(script), "16FNsF1zNp3bjQuNwgfSdBUwq4CdfGoh"));
+	// Extra byte (decoded)
+	assert(!blkmk_address_to_script(script, sizeof(script), "12mEk2LdJmz4PUumptsyDa8ijHU3QS8Hhh1"));
+	assert(!blkmk_address_to_script(script, sizeof(script), ""));
+	assert(!blkmk_address_to_script(script, sizeof(script), "\x01"));
+	assert(!blkmk_address_to_script(script, sizeof(script), "\xff"));
+	
+	// Too little buffer space
+	assert(blkmk_address_to_script(script, 20, "1QATWksNFGeUJCWBrN4g6hGM178Lovm7Wh") == 25);
+	assert(blkmk_address_to_script(script, 0, "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy") == 23);
+	assert(blkmk_address_to_script(script, 24, "1BitcoinEaterAddressDontSendf59kuE") == 25);
 }
 
 static void test_blkmk_x_left() {
