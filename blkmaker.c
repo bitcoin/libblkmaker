@@ -402,7 +402,10 @@ bool _blkmk_calculate_witness_mrklroot(blktemplate_t * const tmpl, libblkmaker_h
 	
 	// Step 1: Populate hashes with the witness hashes for all transactions
 	size_t hashcount = tmpl->txncount + 1;
-	libblkmaker_hash_t hashes[hashcount + 1];  // +1 for when the last needs duplicating
+	libblkmaker_hash_t * const hashes = malloc((hashcount + 1) * sizeof(*hashes));  // +1 for when the last needs duplicating
+	if (!hashes) {
+		return false;
+	}
 	memset(&hashes[0], 0, sizeof(hashes[0]));  // Gen tx gets a null entry
 	*witness_needed = false;
 	for (unsigned long i = 0; i < tmpl->txncount; ++i) {
@@ -412,8 +415,10 @@ bool _blkmk_calculate_witness_mrklroot(blktemplate_t * const tmpl, libblkmaker_h
 		}
 		memcpy(&hashes[i + 1], txn->hash_, sizeof(*hashes));
 	}
-	if (!*witness_needed)
+	if (!*witness_needed) {
+		free(hashes);
 		return true;
+	}
 	
 	// Step 2: Reduce it to a merkle root
 	for ( ; hashcount > 1 ; hashcount /= 2) {
@@ -425,12 +430,14 @@ bool _blkmk_calculate_witness_mrklroot(blktemplate_t * const tmpl, libblkmaker_h
 		for (size_t i = 0; i < hashcount; i += 2) {
 			// We overlap input and output here, on the first pair
 			if (!dblsha256(&hashes[i / 2], &hashes[i], sizeof(*hashes) * 2)) {
+				free(hashes);
 				return false;
 			}
 		}
 	}
 	
 	memcpy(out, hashes, sizeof(*out));
+	free(hashes);
 	return true;
 }
 
