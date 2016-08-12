@@ -38,6 +38,8 @@ static void capabilityname_test() {
 		assert(strlen_capname <= BLKTMPL_LONGEST_CAPABILITY_NAME);
 		assert(blktmpl_getcapability(capname) == capid);
 	}
+	assert(!blktmpl_getcapability("foo"));
+	assert(!blktmpl_capabilityname((uint32_t)1 << GBT_CAPABILITY_COUNT));
 }
 
 static void blktxn_test(const int c) {
@@ -208,6 +210,7 @@ static void blktmpl_jansson_simple() {
 	blktemplate_t *tmpl = blktmpl_create();
 	
 	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":512}", simple_time_rcvd));
+	assert(blktmpl_addcaps(tmpl) == 0);  // Until we support merging templates
 	assert(tmpl->version == 2);
 	assert(tmpl->height == 3);
 	assert(!memcmp(tmpl->diffbits, "\xff\xff\0\x1d", 4));
