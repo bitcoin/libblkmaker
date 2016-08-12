@@ -92,6 +92,11 @@ char varintEncode(unsigned char *out, uint64_t n) {
 	return L;
 }
 
+static uint8_t blkmk_varint_encode_size(const uint64_t n) {
+	uint8_t dummy[max_varint_size];
+	return varintEncode(dummy, n);
+}
+
 static
 int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz) {
 	int16_t sigops = 0;
@@ -194,8 +199,9 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	memset(&data[off], 0, 4);  // lock time
 	off += 4;
 	
+	const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
 	const int16_t sigops_counted = blkmk_count_sigops(script, scriptsz);
-	if (tmpl->txns_datasz + off > tmpl->sizelimit
+	if (pretx_size + tmpl->txns_datasz + off > tmpl->sizelimit
 	 || (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit)) {
 		free(data);
 		return 0;
@@ -276,30 +282,42 @@ bool blkmk_build_merkle_branches(blktemplate_t * const tmpl)
 	}
 	
 	branches = malloc(branchcount * sizeof(*branches));
+	if (!branches) {
+		return false;
+	}
 	
 	size_t hashcount = tmpl->txncount + 1;
-	unsigned char hashes[(hashcount + 1) * 32];
+	libblkmaker_hash_t * const hashes = malloc((hashcount + 1) * sizeof(*hashes));  // +1 for when the last needs duplicating
+	if (!hashes) {
+		free(branches);
+		return false;
+	}
 	
 	for (i = 0; i < tmpl->txncount; ++i)
-		memcpy(&hashes[0x20 * (i + 1)], tmpl->txns[i].hash_, 0x20);
+	{
+		memcpy(&hashes[i + 1], tmpl->txns[i].hash_, sizeof(*hashes));
+	}
 	
 	for (i = 0; i < branchcount; ++i)
 	{
-		memcpy(&branches[i], &hashes[0x20], 0x20);
+		memcpy(&branches[i], &hashes[1], sizeof(*hashes));
 		if (hashcount % 2)
 		{
-			memcpy(&hashes[32 * hashcount], &hashes[32 * (hashcount - 1)], 32);
+			memcpy(&hashes[hashcount], &hashes[hashcount - 1], sizeof(*hashes));
 			++hashcount;
 		}
 		for (size_t i = 2; i < hashcount; i += 2)
 			// This is where we overlap input and output, on the first pair
-			if (!dblsha256(&hashes[i / 2 * 32], &hashes[32 * i], 64))
+			if (!dblsha256(&hashes[i / 2], &hashes[i], sizeof(*hashes) * 2))
 			{
 				free(branches);
+				free(hashes);
 				return false;
 			}
 		hashcount /= 2;
 	}
+	
+	free(hashes);
 	
 	tmpl->_mrklbranch = branches;
 	tmpl->_mrklbranchcount = branchcount;
@@ -342,7 +360,8 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	if (in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz)
 		return false;
 	
-	if (tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
+	const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
+	if (pretx_size + tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
 		return false;
 	}
 	
@@ -399,7 +418,8 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 	}
 	size_t availsz = libblkmaker_coinbase_size_limit - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	{
-		const size_t current_blocksize = tmpl->cbtxn->datasz + tmpl->txns_datasz;
+		const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
+		const size_t current_blocksize = pretx_size + tmpl->cbtxn->datasz + tmpl->txns_datasz;
 		if (current_blocksize > tmpl->sizelimit) {
 			return -4;
 		}
