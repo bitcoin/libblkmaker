@@ -1119,10 +1119,20 @@ static void test_blkmk_init_generation() {
 	assert(blkmk_init_generation3(tmpl, "\x05" "testx", 6, &newcb));
 	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac", 7, &newcb));
 	assert(!blkmk_init_generation3(tmpl, "\x05" "testx\xac\xac", 8, &newcb));
+	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac\x4c\0", 9, &newcb));
+	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac\x4c", 8, &newcb));
+	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac\x4d\x01", 9, &newcb));
+	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac\x4e\x01", 9, &newcb));
+	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac\x4e\0\0\0\0", 12, &newcb));
+	assert(blkmk_init_generation3(tmpl, "\x4c\x04" "estx\xad", 7, &newcb));
+	assert(!blkmk_init_generation3(tmpl, "\x4c\x04" "estx\xad\xad", 8, &newcb));
+	assert(!blkmk_init_generation3(tmpl, "\x4c\x04" "estx\xac\xad", 8, &newcb));
 	tmpl->sigoplimit = 21;
 	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac\xac", 8, &newcb));
 	assert(blkmk_init_generation3(tmpl, "\x05" "testx\xac\xae", 8, &newcb));
 	assert(!blkmk_init_generation3(tmpl, "\x05" "testx\xac\xae\xac", 9, &newcb));
+	assert(blkmk_init_generation3(tmpl, "\x4d\x03\0" "stx\xac\xaf", 8, &newcb));
+	assert(!blkmk_init_generation3(tmpl, "\x4d\x03\0" "stx\xac\xaf\xac", 9, &newcb));
 	
 	blktmpl_free(tmpl);
 }
