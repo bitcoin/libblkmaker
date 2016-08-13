@@ -257,8 +257,9 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
 	
-	if (in[cbScriptSigLen] > 100 - appendsz)
+	if (appendsz > 100 || in[cbScriptSigLen] > 100 - appendsz) {
 		return false;
+	}
 	
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
 	if (appended_at_offset)
@@ -294,6 +295,9 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 		else
 		if (extranoncesz == sizeof(unsigned int))
 			++extranoncesz;
+	}
+	if (extranoncesz > 100 || tmpl->cbtxn->data[cbScriptSigLen] > 100 || extranoncesz + tmpl->cbtxn->data[cbScriptSigLen] > 100) {
+		return -5;
 	}
 	size_t availsz = 100 - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	if (appendsz > availsz)
