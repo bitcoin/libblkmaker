@@ -385,7 +385,7 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	out[cbScriptSigLen] += appendsz;
 	memcpy(outExtranonce, append, appendsz);
 	
-	const int16_t sigops_counted = (tmpl->cbtxn->sigops_ - orig_scriptSig_sigops) + blkmk_count_sigops(&out[cbScriptSigLen + 1], out[cbScriptSigLen]);
+	const int16_t sigops_counted = tmpl->cbtxn->sigops_ + blkmk_count_sigops(&out[cbScriptSigLen + 1], out[cbScriptSigLen]) - orig_scriptSig_sigops;
 	if (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit) {
 		// Overflowed :(
 		if (out == in) {
