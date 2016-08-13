@@ -2,6 +2,10 @@ os: linux
 language: c
 compiler: gcc
 sudo: false
+env:
+  global:
+    - PKG_CONFIG_LIBDIR="$HOME/lib/pkgconfig"
+    - OPTS="--prefix=$HOME"
 matrix:
   include:
 # Normal build
@@ -11,6 +15,7 @@ matrix:
             - build-essential
             - libjansson-dev
             - libgcrypt11-dev
+      env: CFLAGS="-Wall" AM_CFLAGS='-Werror'
 # clang
     - compiler: clang
       addons:
@@ -19,6 +24,18 @@ matrix:
             - build-essential
             - libjansson-dev
             - libgcrypt11-dev
+      env: CFLAGS="-Wall -fsanitize=undefined -fno-sanitize-recover -fsanitize=address"
+# clang
+    - compiler: clang
+      addons:
+        apt:
+            packages:
+            - build-essential
+      env:
+        - BUILD_LIBS=1
+          JANSSON_VERSION=v2.1
+          CFLAGS="-O0 -ggdb -Wall -fsanitize=undefined -fno-sanitize-recover -fsanitize=memory -fPIE -pie"
+          LDFLAGS="-fsanitize=memory -fPIE -pie -L$HOME/lib"
 # w/o libgcrypt
     - addons:
         apt:
@@ -28,17 +45,48 @@ matrix:
   exclude:
     - compiler: gcc
 # TODO: Linux32 (or 64) & OS X & Win32/64 (needs libs cross-compiled)
-install:
+script:
+  - if [ -n "$BUILD_LIBS" ]; then
+      OPTS="$OPTS --with-gpg-error-prefix=$HOME";
+      git clone git://git.gnupg.org/libgpg-error.git -b libgpg-error-1.13 --depth 1;
+      pushd libgpg-error;
+      ./autogen.sh;
+      ./configure $TARGET_OPTS $OPTS $GPGERROR_OPTS --disable-languages --disable-doc;
+      make;
+      LD_LIBRARY_PATH="$HOME/lib" make check;
+      make install;
+      popd;
+      OPTS="$OPTS --with-libgcrypt-prefix=$HOME";
+      git clone git://git.gnupg.org/libgcrypt.git -b libgcrypt-1.5.4 --depth 1;
+      pushd libgcrypt;
+      ./autogen.sh;
+      ./configure $TARGET_OPTS $OPTS --disable-ciphers --disable-pubkey-ciphers --disable-random --disable-asm;
+      make;
+      LD_LIBRARY_PATH="$HOME/lib" make check;
+      make install;
+      popd;
+      
+      git clone https://github.com/akheron/jansson.git -b "$JANSSON_VERSION" --depth 1;
+      pushd jansson;
+      autoreconf -f -i;
+      ./configure $TARGET_OPTS $OPTS;
+      make AM_CFLAGS= ;
+      LD_LIBRARY_PATH="$HOME/lib" make check;
+      make install;
+      popd;
+    fi
   - git clone git://github.com/bitcoin/libbase58 -b v0.1.4 --depth 1
   - pushd libbase58
   - ./autogen.sh
-  - ./configure --prefix="$HOME" $TARGET_OPTS
+  - ./configure $TARGET_OPTS $OPTS
   - make
-  - make check
+  - LD_LIBRARY_PATH="$HOME/lib" make check;
   - make install
   - popd
-script:
+  - 
   - ./autogen.sh
-  - ./configure PKG_CONFIG_PATH="$HOME/lib/pkgconfig" $TARGET_OPTS $CONFIGURE_OPTS || tail -n 1000 config.log
+  - ./configure $TARGET_OPTS $OPTS $CONFIGURE_OPTS || { tail -n 1000 config.log; false; };
   - make
-  - make check
+  - make example$EXEEXT
+  - LSAN_OPTIONS=1 LD_LIBRARY_PATH="$HOME/lib" make check;
+  - make install
