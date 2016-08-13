@@ -54,10 +54,10 @@ dist_noinst_DATA = \
 if CAN_COMPILE_EXAMPLE
 EXTRA_PROGRAMS = example
 example_SOURCES = example.c
-example_LDADD = libblkmaker-$(LIBBLKMAKER_API_VERSION).la libblkmaker_jansson-$(LIBBLKMAKER_API_VERSION).la $(LIBGCRYPT_LIBS)
-example_CFLAGS = $(LIBGCRYPT_CFLAGS)
+example_CFLAGS = $(libbase58_CFLAGS) $(JANSSON_CFLAGS) $(LIBGCRYPT_CFLAGS)
+example_LDADD = $(libbase58_LIBS) libblkmaker-@LIBBLKMAKER_API_VERSION@.la libblkmaker_jansson-@LIBBLKMAKER_API_VERSION@.la $(JANSSON_LIBS) $(LIBGCRYPT_LIBS)
 else
 example:
-    @echo "libgcrypt is required to build the example, but was not found"
+	@echo "libgcrypt is required to build the example, but was not found"
 .PHONY: example
 endif

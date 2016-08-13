@@ -9,7 +9,11 @@
 #include <inttypes.h>
 #include <stdint.h>
 
+#ifndef WIN32
 #include <arpa/inet.h>
+#else
+#include <winsock2.h>
+#endif
 
 #include <gcrypt.h>
 #include <libbase58.h>
@@ -127,4 +131,5 @@ int main(int argc, char**argv) {
 		send_json(req);
 	}
 	blktmpl_free(tmpl);
+	return 0;
 }
