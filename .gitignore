@@ -31,3 +31,8 @@ config.*
 ii
 ar-lib
 compile
+test-driver
+test
+test-suite.log
+test.log
+test.trs
