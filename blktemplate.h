@@ -134,6 +134,8 @@ typedef struct {
 	blktime_diff_t maxtimeoff;
 	blktime_t mintime;
 	blktime_diff_t mintimeoff;
+	
+	// Note these never were and are NOT supported, but retained merely for ABI compatibility; they will be removed without an API version bump in 0.6!
 	blknonce_t minnonce;
 	blknonce_t maxnonce;
 	

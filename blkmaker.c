@@ -295,8 +295,9 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
 	
-	if (in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz)
+	if (appendsz > libblkmaker_coinbase_size_limit || in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz) {
 		return false;
+	}
 	
 	const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
 	if (pretx_size + tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
@@ -337,6 +338,9 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 	{
 		if (extranoncesz < sizeof(unsigned int))
 			extranoncesz = sizeof(unsigned int);
+	}
+	if (extranoncesz > libblkmaker_coinbase_size_limit || tmpl->cbtxn->data[cbScriptSigLen] > libblkmaker_coinbase_size_limit || extranoncesz + tmpl->cbtxn->data[cbScriptSigLen] > libblkmaker_coinbase_size_limit) {
+		return -5;
 	}
 	size_t availsz = libblkmaker_coinbase_size_limit - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	{
