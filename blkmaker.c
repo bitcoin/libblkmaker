@@ -176,6 +176,12 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 		return 0;
 	}
 	
+	if (!tmpl->cbvalue) {
+		// TODO: Figure it out from the existing cbtxn
+		*inout_newcb = false;
+		return 0;
+	}
+	
 	*inout_newcb = true;
 	
 	if (scriptsz >= 0xfd)
@@ -473,8 +479,9 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	unsigned char *in = tmpl->cbtxn->data;
 	size_t insz = tmpl->cbtxn->datasz;
 	
-	if (in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz)
+	if (appendsz > libblkmaker_coinbase_size_limit || in[cbScriptSigLen] > libblkmaker_coinbase_size_limit - appendsz) {
 		return false;
+	}
 	
 	const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
 	if (pretx_size + tmpl->cbtxn->datasz + tmpl->txns_datasz + appendsz > tmpl->sizelimit) {
@@ -504,7 +511,7 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	out[cbScriptSigLen] += appendsz;
 	memcpy(outExtranonce, append, appendsz);
 	
-	const int16_t sigops_counted = (tmpl->cbtxn->sigops_ - orig_scriptSig_sigops) + blkmk_count_sigops(&out[cbScriptSigLen + 1], out[cbScriptSigLen], tmpl->_bip141_sigops);
+	const int16_t sigops_counted = tmpl->cbtxn->sigops_ + blkmk_count_sigops(&out[cbScriptSigLen + 1], out[cbScriptSigLen], tmpl->_bip141_sigops) - orig_scriptSig_sigops;
 	if (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit) {
 		// Overflowed :(
 		if (out == in) {
@@ -535,6 +542,9 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 	{
 		if (extranoncesz < sizeof(unsigned int))
 			extranoncesz = sizeof(unsigned int);
+	}
+	if (extranoncesz > libblkmaker_coinbase_size_limit || tmpl->cbtxn->data[cbScriptSigLen] > libblkmaker_coinbase_size_limit || extranoncesz + tmpl->cbtxn->data[cbScriptSigLen] > libblkmaker_coinbase_size_limit) {
+		return -5;
 	}
 	size_t availsz = libblkmaker_coinbase_size_limit - extranoncesz - tmpl->cbtxn->data[cbScriptSigLen];
 	{

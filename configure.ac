@@ -51,18 +51,18 @@ PKG_CHECK_MODULES([libbase58],[libbase58])
 
 AC_CHECK_LIB([ws2_32], [strchr])
 
-dnl libgcrypt necessary to build example.c with "make example"
+dnl libgcrypt necessary to build tests and example
 dnl check for libgcrypt:
 m4_ifdef([AM_PATH_LIBGCRYPT], [
 	AM_PATH_LIBGCRYPT([],
 		[
-			can_compile_example=yes
+			have_libgcrypt=yes
 		],[
-			can_compile_example=no
+			have_libgcrypt=no
 		])
 ],[
-	m4_warn([syntax], [AM_PATH_LIBGCRYPT missing; example will not be available])
+	m4_warn([syntax], [AM_PATH_LIBGCRYPT missing; example and tests will not be available])
 ])
-AM_CONDITIONAL([CAN_COMPILE_EXAMPLE], [test x$can_compile_example = xyes])
+AM_CONDITIONAL([HAVE_LIBGCRYPT], [test x$have_libgcrypt = xyes])
 
 AC_OUTPUT
