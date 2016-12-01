@@ -25,17 +25,6 @@ matrix:
             - libjansson-dev
             - libgcrypt11-dev
       env: CFLAGS="-Wall -fsanitize=undefined -fno-sanitize-recover -fsanitize=address"
-# clang
-    - compiler: clang
-      addons:
-        apt:
-            packages:
-            - build-essential
-      env:
-        - BUILD_LIBS=1
-          JANSSON_VERSION=v2.1
-          CFLAGS="-O0 -ggdb -Wall -fsanitize=undefined -fno-sanitize-recover -fsanitize=memory -fPIE -pie"
-          LDFLAGS="-fsanitize=memory -fPIE -pie -L$HOME/lib"
 # w/o libgcrypt
     - addons:
         apt:
