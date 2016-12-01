@@ -121,7 +121,7 @@ script:
   - ./configure $TARGET_OPTS $OPTS
   - make
   - if [ -z "$WINE_TESTS" ]; then
-      LD_LIBRARY_PATH="$HOME/lib" make check;
+      LD_LIBRARY_PATH="$HOME/lib" make check VERBOSE=1;
     fi
   - make install
   - popd
@@ -131,7 +131,7 @@ script:
   - make
   - make example$EXEEXT
   - if [ -z "$WINE_TESTS" ]; then
-      LSAN_OPTIONS=1 LD_LIBRARY_PATH="$HOME/lib" make check;
+      LSAN_OPTIONS=1 LD_LIBRARY_PATH="$HOME/lib" make check VERBOSE=1;
     else
       ln -s $HOME/bin/*.dll .libs/;
       LSAN_OPTIONS=1 WINEDLLPATH="$PWD/.libs" wine .libs/test.exe;
