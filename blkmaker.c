@@ -200,8 +200,10 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	my_htole64(&data[off], tmpl->cbvalue);
 	off += 8;
 	data[off++] = scriptsz;
-	memcpy(&data[off], script, scriptsz);
-	off += scriptsz;
+	if (scriptsz) {
+		memcpy(&data[off], script, scriptsz);
+		off += scriptsz;
+	}
 	memset(&data[off], 0, 4);  // lock time
 	off += 4;
 	
