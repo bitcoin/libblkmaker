@@ -213,6 +213,25 @@ const char *parse_txn(struct blktxn_t *txn, json_t *txnj, size_t my_tx_index) {
 			my_flip(*txn->hash_, sizeof(*txn->hash_));
 	}
 	
+	if ((vv = json_object_get(txnj, "txid")) && json_is_string(vv)) {
+		hexdata = json_string_value(vv);
+		txn->txid = malloc(sizeof(*txn->txid));
+		if (!my_hex2bin(*txn->txid, hexdata, sizeof(*txn->txid))) {
+			return "Error decoding txid field";
+		} else {
+			my_flip(*txn->txid, sizeof(*txn->txid));
+		}
+	}
+	
+	txn->weight = -1;
+	if ((vv = json_object_get(txnj, "weight")) && json_is_number(vv)) {
+		const double f = json_number_value(txnj);
+		const int32_t i32 = f;
+		if (f == i32) {
+			txn->weight = i32;
+		}
+	}
+	
 	if ((vv = json_object_get(txnj, "depends")) && json_is_array(vv)) {
 		size_t depcount = json_array_size(vv);
 		if (depcount <= LONG_MAX) {
@@ -309,81 +328,8 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 	my_flip(tmpl->prevblk, 32);
 	GETNUM_O(sigoplimit, unsigned short);
 	GETNUM_O(sizelimit, unsigned long);
+	GETNUM_O(weightlimit, int64_t);
 	GETNUM(version, uint32_t);
-	
-	GETNUM_O2(cbvalue, coinbasevalue, uint64_t);
-	
-	GETSTR(workid, workid);
-	
-	GETNUM_OT(expires, int16_t);
-	GETNUM_OT(maxtime, blktime_t);
-	GETNUM_OT(maxtimeoff, blktime_diff_t);
-	GETNUM_OT(mintime, blktime_t);
-	GETNUM_OT(mintimeoff, blktime_diff_t);
-	
-	GETSTR(longpollid, lp.id);
-	GETSTR(longpolluri, lp.uri);
-	GETBOOL(submitold, submitold, true);
-	
-	v = json_object_get(json, "transactions");
-	size_t txns = tmpl->txncount = json_array_size(v);
-	tmpl->txns = calloc(txns, sizeof(*tmpl->txns));
-	tmpl->txns_datasz = 0;
-	tmpl->txns_sigops = 0;
-	for (size_t i = 0; i < txns; ++i)
-	{
-		struct blktxn_t * const txn = &tmpl->txns[i];
-		if ((s = parse_txn(txn, json_array_get(v, i), i + 1))) {
-			return s;
-		}
-		tmpl->txns_datasz += txn->datasz;
-		if (tmpl->txns_sigops == -1) {
-			;  // Impossible to tally the unknown
-		} else if (txn->sigops_ == -1) {
-			tmpl->txns_sigops = -1;
-		} else {
-			tmpl->txns_sigops += txn->sigops_;
-		}
-	}
-	
-	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
-	{
-		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
-		if ((s = parse_txn(tmpl->cbtxn, v, 0)))
-			return s;
-	} else if (!tmpl->cbvalue) {
-		return "Missing either coinbasetxn or coinbasevalue";
-	}
-	
-	if ((v = json_object_get(json, "coinbaseaux")) && json_is_object(v))
-	{
-		tmpl->aux_count = json_object_size(v);
-		tmpl->auxs = calloc(tmpl->aux_count, sizeof(*tmpl->auxs));
-		unsigned i = 0;
-		for (void *iter = json_object_iter(v); iter; (iter = json_object_iter_next(v, iter)), ++i)
-		{
-			v2 = json_object_iter_value(iter);
-			s = json_string_value(v2);
-			if (!s)
-				continue;
-			size_t sz = strlen(s) / 2;
-			tmpl->auxs[i] = (struct blkaux_t){
-				.auxname = strdup(json_object_iter_key(iter)),
-				.data = malloc(sz),
-				.datasz = sz,
-			};
-			if (!my_hex2bin(tmpl->auxs[i].data, s, sz)) {
-				return "Error decoding 'coinbaseaux' data";
-			}
-		}
-	}
-	
-	if ((v = json_object_get(json, "target")) && json_is_string(v))
-	{
-		tmpl->target = malloc(sizeof(*tmpl->target));
-		if (!my_hex2bin(tmpl->target, json_string_value(v), sizeof(*tmpl->target)))
-			return "Error decoding 'target'";
-	}
 	
 	if ((v = json_object_get(json, "mutable")) && json_is_array(v))
 	{
@@ -419,6 +365,9 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 			tmpl->rules[i] = strdup(s);
 			if (!tmpl->rules[i]) {
 				return "Memory allocation error parsing rules";
+			}
+			if (!strcmp(s, "segwit")) {
+				tmpl->_bip141_sigops = true;
 			}
 		}
 		
@@ -465,6 +414,88 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		else
 		if (!(tmpl->mutations & BMM_VERFORCE))
 			return "Unrecognized block version, and not allowed to reduce or force it";
+	}
+	
+	GETNUM_O2(cbvalue, coinbasevalue, uint64_t);
+	
+	GETSTR(workid, workid);
+	
+	GETNUM_OT(expires, int16_t);
+	GETNUM_OT(maxtime, blktime_t);
+	GETNUM_OT(maxtimeoff, blktime_diff_t);
+	GETNUM_OT(mintime, blktime_t);
+	GETNUM_OT(mintimeoff, blktime_diff_t);
+	
+	GETSTR(longpollid, lp.id);
+	GETSTR(longpolluri, lp.uri);
+	GETBOOL(submitold, submitold, true);
+	
+	v = json_object_get(json, "transactions");
+	size_t txns = tmpl->txncount = json_array_size(v);
+	tmpl->txns = calloc(txns, sizeof(*tmpl->txns));
+	tmpl->txns_datasz = 0;
+	tmpl->txns_sigops = 0;
+	tmpl->txns_weight = 0;
+	for (size_t i = 0; i < txns; ++i)
+	{
+		struct blktxn_t * const txn = &tmpl->txns[i];
+		if ((s = parse_txn(txn, json_array_get(v, i), i + 1))) {
+			return s;
+		}
+		tmpl->txns_datasz += txn->datasz;
+		if (tmpl->txns_sigops == -1) {
+			;  // Impossible to tally the unknown
+		} else if (txn->sigops_ == -1) {
+			tmpl->txns_sigops = -1;
+		} else {
+			tmpl->txns_sigops += txn->sigops_;
+		}
+		if (tmpl->txns_weight == -1) {
+			;  // Impossible to tally the unknown
+		} else if (txn->weight == -1) {
+			tmpl->txns_weight = -1;
+		} else {
+			tmpl->txns_weight += txn->weight;
+		}
+	}
+	
+	if ((v = json_object_get(json, "coinbasetxn")) && json_is_object(v))
+	{
+		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
+		if ((s = parse_txn(tmpl->cbtxn, v, 0)))
+			return s;
+	} else if (!tmpl->cbvalue) {
+		return "Missing either coinbasetxn or coinbasevalue";
+	}
+	
+	if ((v = json_object_get(json, "coinbaseaux")) && json_is_object(v))
+	{
+		tmpl->aux_count = json_object_size(v);
+		tmpl->auxs = calloc(tmpl->aux_count, sizeof(*tmpl->auxs));
+		unsigned i = 0;
+		for (void *iter = json_object_iter(v); iter; (iter = json_object_iter_next(v, iter)), ++i)
+		{
+			v2 = json_object_iter_value(iter);
+			s = json_string_value(v2);
+			if (!s)
+				continue;
+			size_t sz = strlen(s) / 2;
+			tmpl->auxs[i] = (struct blkaux_t){
+				.auxname = strdup(json_object_iter_key(iter)),
+				.data = malloc(sz),
+				.datasz = sz,
+			};
+			if (!my_hex2bin(tmpl->auxs[i].data, s, sz)) {
+				return "Error decoding 'coinbaseaux' data";
+			}
+		}
+	}
+	
+	if ((v = json_object_get(json, "target")) && json_is_string(v))
+	{
+		tmpl->target = malloc(sizeof(*tmpl->target));
+		if (!my_hex2bin(tmpl->target, json_string_value(v), sizeof(*tmpl->target)))
+			return "Error decoding 'target'";
 	}
 	
 	tmpl->_time_rcvd = time_rcvd;

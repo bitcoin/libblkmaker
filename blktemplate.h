@@ -40,8 +40,10 @@ struct blktxn_t {
 	int64_t fee_;
 	bool required;
 	int16_t sigops_;
+	int32_t weight;
 	
 	txnhash_t *hash_;
+	txnhash_t *txid;
 };
 
 struct blkaux_t {
@@ -150,6 +152,12 @@ typedef struct {
 	bool unsupported_rule;
 	struct blktmpl_vbassoc **vbavailable;
 	uint32_t vbrequired;
+	
+	bool _bip141_sigops;
+	bool _calculated_witness;
+	libblkmaker_hash_t *_witnessmrklroot;
+	int64_t weightlimit;
+	int64_t txns_weight;
 } blktemplate_t;
 
 extern void blktxn_init(struct blktxn_t *);
