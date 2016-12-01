@@ -45,7 +45,7 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = \
 	libblkmaker_jansson-$(LIBBLKMAKER_API_VERSION).pc
 
-dist_noinst_SCRIPTS = autogen.sh
+dist_noinst_SCRIPTS = autogen.sh test.sh
 dist_noinst_DATA = \
 	AUTHORS COPYING README \
 	example.c \
@@ -56,7 +56,7 @@ check_PROGRAMS = test
 test_SOURCES = test.c
 test_CFLAGS = $(libbase58_CFLAGS) $(JANSSON_CFLAGS) $(LIBGCRYPT_CFLAGS)
 test_LDADD = $(libbase58_LIBS) libblkmaker-@LIBBLKMAKER_API_VERSION@.la libblkmaker_jansson-@LIBBLKMAKER_API_VERSION@.la $(JANSSON_LIBS) $(LIBGCRYPT_LIBS)
-TESTS = test
+TESTS = test.sh
 
 EXTRA_PROGRAMS = example
 example_SOURCES = example.c
