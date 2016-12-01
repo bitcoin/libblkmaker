@@ -25,17 +25,6 @@ matrix:
             - libjansson-dev
             - libgcrypt11-dev
       env: CFLAGS="-Wall -fsanitize=undefined -fno-sanitize-recover -fsanitize=address"
-# clang
-    - compiler: clang
-      addons:
-        apt:
-            packages:
-            - build-essential
-      env:
-        - BUILD_LIBS=1
-          JANSSON_VERSION=v2.1
-          CFLAGS="-O0 -ggdb -Wall -fsanitize=undefined -fno-sanitize-recover -fsanitize=memory -fPIE -pie"
-          LDFLAGS="-fsanitize=memory -fPIE -pie -L$HOME/lib"
 # w/o libgcrypt
     - addons:
         apt:
@@ -121,7 +110,7 @@ script:
   - ./configure $TARGET_OPTS $OPTS
   - make
   - if [ -z "$WINE_TESTS" ]; then
-      LD_LIBRARY_PATH="$HOME/lib" make check;
+      LD_LIBRARY_PATH="$HOME/lib" make check VERBOSE=1;
     fi
   - make install
   - popd
@@ -130,8 +119,9 @@ script:
   - ./configure $TARGET_OPTS $OPTS $CONFIGURE_OPTS || { tail -n 1000 config.log; false; };
   - make
   - make example$EXEEXT
+  - make test$EXEEXT
   - if [ -z "$WINE_TESTS" ]; then
-      LSAN_OPTIONS=1 LD_LIBRARY_PATH="$HOME/lib" make check;
+      LSAN_OPTIONS=1 LD_LIBRARY_PATH="$HOME/lib" make check VERBOSE=1;
     else
       ln -s $HOME/bin/*.dll .libs/;
       LSAN_OPTIONS=1 WINEDLLPATH="$PWD/.libs" wine .libs/test.exe;
