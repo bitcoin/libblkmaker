@@ -130,6 +130,7 @@ script:
   - ./configure $TARGET_OPTS $OPTS $CONFIGURE_OPTS || { tail -n 1000 config.log; false; };
   - make
   - make example$EXEEXT
+  - make test$EXEEXT
   - if [ -z "$WINE_TESTS" ]; then
       LSAN_OPTIONS=1 LD_LIBRARY_PATH="$HOME/lib" make check VERBOSE=1;
     else
