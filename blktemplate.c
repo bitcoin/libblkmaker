@@ -7,6 +7,7 @@
 
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -67,6 +68,7 @@ void blktxn_init(struct blktxn_t * const txn) {
 	txn->datasz = 0;
 	txn->hash = NULL;
 	txn->hash_ = NULL;
+	txn->txid = NULL;
 	
 	txn->dependscount = -1;
 	txn->depends = NULL;
@@ -74,6 +76,7 @@ void blktxn_init(struct blktxn_t * const txn) {
 	txn->fee_ = -1;
 	txn->required = false;
 	txn->sigops_ = -1;
+	txn->weight = -1;
 }
 
 blktemplate_t *blktmpl_create() {
@@ -84,6 +87,7 @@ blktemplate_t *blktmpl_create() {
 	
 	tmpl->sigoplimit = USHRT_MAX;
 	tmpl->sizelimit = ULONG_MAX;
+	tmpl->weightlimit = INT64_MAX;
 	
 	tmpl->maxtime = 0xffffffff;
 	tmpl->maxtimeoff = 0x7fff;
@@ -116,6 +120,7 @@ void blktxn_clean(struct blktxn_t * const bt) {
 	free(bt->hash);
 	free(bt->hash_);
 	free(bt->depends);
+	free(bt->txid);
 }
 
 static
@@ -134,6 +139,7 @@ void blktmpl_free(blktemplate_t *tmpl) {
 		free(tmpl->cbtxn);
 	}
 	free(tmpl->_mrklbranch);
+	free(tmpl->_witnessmrklroot);
 	for (unsigned i = 0; i < tmpl->aux_count; ++i)
 		blkaux_clean(&tmpl->auxs[i]);
 	free(tmpl->auxs);

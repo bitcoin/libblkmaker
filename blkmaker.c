@@ -26,6 +26,7 @@
 
 const char *blkmk_supported_rules[] = {
 	"csv",
+	"segwit",
 	NULL
 };
 
@@ -60,6 +61,32 @@ bool _blkmk_dblsha256(void *hash, const void *data, size_t datasz) {
 }
 
 #define dblsha256 _blkmk_dblsha256
+
+static
+size_t varintDecode(const uint8_t *p, size_t size, uint64_t *n)
+{
+	if (size > 8 && p[0] == 0xff)
+	{
+		*n = upk_u64le(p, 1);
+		return 9;
+	}
+	if (size > 4 && p[0] == 0xfe)
+	{
+		*n = upk_u32le(p, 1);
+		return 5;
+	}
+	if (size > 2 && p[0] == 0xfd)
+	{
+		*n = upk_u16le(p, 1);
+		return 3;
+	}
+	if (size > 0 && p[0] <= 0xfc)
+	{
+		*n = p[0];
+		return 1;
+	}
+	return 0;
+}
 
 #define max_varint_size (9)
 
@@ -98,7 +125,7 @@ static uint8_t blkmk_varint_encode_size(const uint64_t n) {
 }
 
 static
-int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz) {
+int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz, const bool bip141) {
 	int16_t sigops = 0;
 	for (size_t i = 0; i < scriptsz; ++i) {
 		if (script[i] <= 0x4c /* OP_PUSHDATA1 */) {
@@ -125,7 +152,21 @@ int16_t blkmk_count_sigops(const uint8_t * const script, const size_t scriptsz) 
 			sigops += 20;
 		}
 	}
+	if (bip141) {
+		sigops *= 4;
+	}
 	return sigops;
+}
+
+static int64_t blkmk_calc_gentx_weight(const void * const data, const size_t datasz) {
+	return (datasz * 4) + 2 /* marker & flag */ + 1 /* witness stack count */ + 1 /* stack item size */ + 32 /* stack item: nonce */;
+}
+
+static int64_t blktxn_set_gentx_weight(struct blktxn_t * const gentx) {
+	if (gentx->weight < 0) {
+		gentx->weight = blkmk_calc_gentx_weight(gentx->data, gentx->datasz);
+	}
+	return gentx->weight;
 }
 
 uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const script, const size_t scriptsz, bool * const inout_newcb) {
@@ -208,8 +249,10 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	off += 4;
 	
 	const unsigned long pretx_size = libblkmaker_blkheader_size + blkmk_varint_encode_size(1 + tmpl->txncount);
-	const int16_t sigops_counted = blkmk_count_sigops(script, scriptsz);
+	const int16_t sigops_counted = blkmk_count_sigops(script, scriptsz, tmpl->_bip141_sigops);
+	const int64_t gentx_weight = blkmk_calc_gentx_weight(data, off);
 	if (pretx_size + tmpl->txns_datasz + off > tmpl->sizelimit
+	 || (tmpl->txns_weight >= 0 && tmpl->txns_weight + gentx_weight > tmpl->weightlimit)
 	 || (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit)) {
 		free(data);
 		return 0;
@@ -226,6 +269,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	txn->data = data;
 	txn->datasz = off;
 	txn->sigops_ = sigops_counted;
+	txn->weight = gentx_weight;
 	
 	if (tmpl->cbtxn)
 	{
@@ -303,7 +347,9 @@ bool blkmk_build_merkle_branches(blktemplate_t * const tmpl)
 	
 	for (i = 0; i < tmpl->txncount; ++i)
 	{
-		memcpy(&hashes[i + 1], tmpl->txns[i].hash_, sizeof(*hashes));
+		struct blktxn_t * const txn = &tmpl->txns[i];
+		txnhash_t * const txid = txn->txid ? txn->txid : txn->hash_;
+		memcpy(&hashes[i + 1], txid, sizeof(*hashes));
 	}
 	
 	for (i = 0; i < branchcount; ++i)
@@ -357,6 +403,76 @@ bool build_merkle_root(unsigned char *mrklroot_out, blktemplate_t *tmpl, unsigne
 	return true;
 }
 
+static
+bool _blkmk_calculate_witness_mrklroot(blktemplate_t * const tmpl, libblkmaker_hash_t * const out, bool * const witness_needed) {
+	if (!blkmk_hash_transactions(tmpl))
+		return false;
+	
+	// Step 1: Populate hashes with the witness hashes for all transactions
+	size_t hashcount = tmpl->txncount + 1;
+	libblkmaker_hash_t * const hashes = malloc((hashcount + 1) * sizeof(*hashes));  // +1 for when the last needs duplicating
+	if (!hashes) {
+		return false;
+	}
+	memset(&hashes[0], 0, sizeof(hashes[0]));  // Gen tx gets a null entry
+	*witness_needed = false;
+	for (unsigned long i = 0; i < tmpl->txncount; ++i) {
+		struct blktxn_t * const txn = &tmpl->txns[i];
+		if (txn->txid && memcmp(txn->hash_, txn->txid, sizeof(*txn->txid))) {
+			*witness_needed = true;
+		}
+		memcpy(&hashes[i + 1], txn->hash_, sizeof(*hashes));
+	}
+	if (!*witness_needed) {
+		free(hashes);
+		return true;
+	}
+	
+	// Step 2: Reduce it to a merkle root
+	for ( ; hashcount > 1 ; hashcount /= 2) {
+		if (hashcount % 2 == 1) {
+			// Odd number, duplicate the last
+			memcpy(&hashes[hashcount], &hashes[hashcount - 1], sizeof(*hashes));
+			++hashcount;
+		}
+		for (size_t i = 0; i < hashcount; i += 2) {
+			// We overlap input and output here, on the first pair
+			if (!dblsha256(&hashes[i / 2], &hashes[i], sizeof(*hashes) * 2)) {
+				free(hashes);
+				return false;
+			}
+		}
+	}
+	
+	memcpy(out, hashes, sizeof(*out));
+	free(hashes);
+	return true;
+}
+
+static
+bool _blkmk_witness_mrklroot(blktemplate_t * const tmpl) {
+	if (tmpl->_calculated_witness) {
+		// Already calculated
+		return true;
+	}
+	tmpl->_witnessmrklroot = malloc(sizeof(libblkmaker_hash_t));
+	if (!tmpl->_witnessmrklroot) {
+		return false;
+	}
+	bool witness_needed;
+	if (!_blkmk_calculate_witness_mrklroot(tmpl, tmpl->_witnessmrklroot, &witness_needed)) {
+		free(tmpl->_witnessmrklroot);
+		tmpl->_witnessmrklroot = NULL;
+		return false;
+	}
+	if (!witness_needed) {
+		free(tmpl->_witnessmrklroot);
+		tmpl->_witnessmrklroot = NULL;
+	}
+	tmpl->_calculated_witness = true;
+	return true;
+}
+
 static const int cbScriptSigLen = 4 + 1 + 36;
 
 static
@@ -374,7 +490,11 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 		return false;
 	}
 	
-	const int16_t orig_scriptSig_sigops = blkmk_count_sigops(&in[cbScriptSigLen + 1], in[cbScriptSigLen]);
+	if (tmpl->txns_weight >= 0 && (blktxn_set_gentx_weight(tmpl->cbtxn) + tmpl->txns_weight + (appendsz * 4) > tmpl->weightlimit)) {
+		return false;
+	}
+	
+	const int16_t orig_scriptSig_sigops = blkmk_count_sigops(&in[cbScriptSigLen + 1], in[cbScriptSigLen], tmpl->_bip141_sigops);
 	int cbPostScriptSig = cbScriptSigLen + 1 + in[cbScriptSigLen];
 	if (appended_at_offset)
 		*appended_at_offset = cbPostScriptSig;
@@ -393,7 +513,7 @@ bool _blkmk_append_cb(blktemplate_t * const tmpl, void * const vout, const void 
 	out[cbScriptSigLen] += appendsz;
 	memcpy(outExtranonce, append, appendsz);
 	
-	const int16_t sigops_counted = tmpl->cbtxn->sigops_ + blkmk_count_sigops(&out[cbScriptSigLen + 1], out[cbScriptSigLen]) - orig_scriptSig_sigops;
+	const int16_t sigops_counted = tmpl->cbtxn->sigops_ + blkmk_count_sigops(&out[cbScriptSigLen + 1], out[cbScriptSigLen], tmpl->_bip141_sigops) - orig_scriptSig_sigops;
 	if (tmpl->txns_sigops >= 0 && tmpl->txns_sigops + sigops_counted > tmpl->sigoplimit) {
 		// Overflowed :(
 		if (out == in) {
@@ -440,6 +560,16 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 			availsz = availsz2;
 		}
 	}
+	if (tmpl->txns_weight >= 0) {
+		const size_t current_blockweight = blktxn_set_gentx_weight(tmpl->cbtxn) + tmpl->txns_weight;
+		if (current_blockweight > tmpl->weightlimit) {
+			return false;
+		}
+		const size_t availsz2 = (tmpl->weightlimit - current_blockweight) / 4;
+		if (availsz2 < availsz) {
+			availsz = availsz2;
+		}
+	}
 	if (appendsz > availsz)
 		return availsz;
 	
@@ -451,6 +581,7 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 	if (!_blkmk_append_cb(tmpl, newp, append, appendsz, NULL, &tmpl->cbtxn->sigops_))
 		return -3;
 	tmpl->cbtxn->datasz += appendsz;
+	tmpl->cbtxn->weight += appendsz * 4;
 	
 	return availsz;
 }
@@ -474,6 +605,70 @@ bool _blkmk_extranonce(blktemplate_t *tmpl, void *vout, unsigned int workid, siz
 		return false;
 	
 	*offs += insz + sizeof(workid);
+	
+	return true;
+}
+
+static const unsigned char witness_magic[] = { 0x6a /* OP_RETURN */, 0x24, 0xaa, 0x21, 0xa9, 0xed };
+#define commitment_spk_size (sizeof(witness_magic) + sizeof(libblkmaker_hash_t) /* witness mrklroot */)
+#define commitment_txout_size (8 /* value */ + 1 /* scriptPubKey length */ + commitment_spk_size)
+static const size_t max_witness_commitment_insert = max_varint_size + commitment_txout_size - 1;
+static const libblkmaker_hash_t witness_nonce = { 0 };
+
+static
+bool _blkmk_insert_witness_commitment(blktemplate_t * const tmpl, unsigned char * const gentxdata, size_t * const gentxsize) {
+	if (!_blkmk_witness_mrklroot(tmpl)) {
+		return false;
+	}
+	if (!tmpl->_witnessmrklroot) {
+		// No commitment needed
+		return true;
+	}
+
+	libblkmaker_hash_t merkle_with_nonce[2];
+	libblkmaker_hash_t commitment;
+	memcpy(&merkle_with_nonce[0], tmpl->_witnessmrklroot, sizeof(*tmpl->_witnessmrklroot));
+	memcpy(&merkle_with_nonce[1], &witness_nonce, sizeof(witness_nonce));
+	if(!dblsha256(&commitment, &merkle_with_nonce[0], sizeof(merkle_with_nonce)))
+		return false;
+	
+	if (cbScriptSigLen >= *gentxsize) {
+		return false;
+	}
+	const uint8_t coinbasesz = gentxdata[cbScriptSigLen];
+	const size_t offset_of_txout_count = cbScriptSigLen + coinbasesz + sizeof(coinbasesz) + 4 /* nSequence */;
+	if (offset_of_txout_count >= *gentxsize) {
+		return false;
+	}
+	uint64_t txout_count;
+	const size_t in_txout_count_size = varintDecode(&gentxdata[offset_of_txout_count], *gentxsize - offset_of_txout_count, &txout_count);
+	if (!in_txout_count_size) {
+		return false;
+	}
+	++txout_count;
+	unsigned char insertbuf[max_varint_size + commitment_txout_size];
+	const size_t out_txout_count_size = varintEncode(insertbuf, txout_count);
+	unsigned char * const commitment_txout = &insertbuf[out_txout_count_size];
+	memset(commitment_txout, 0, 8);  // value
+	commitment_txout[8] = commitment_spk_size;
+	memcpy(&commitment_txout[9], witness_magic, sizeof(witness_magic));
+	memcpy(&commitment_txout[9 + sizeof(witness_magic)], &commitment, sizeof(commitment));
+	
+	const size_t offset_of_txout_data = (offset_of_txout_count + in_txout_count_size);
+	const size_t new_offset_of_preexisting_txout_data = (offset_of_txout_count + out_txout_count_size);
+	const size_t length_of_txtail = 4;
+	const size_t length_of_preexisting_txout_data = (*gentxsize - length_of_txtail) - offset_of_txout_data;
+	const size_t offset_of_txtail_i = *gentxsize - length_of_txtail;  // just the lock time
+	const size_t offset_of_txtail_o = offset_of_txtail_i + (out_txout_count_size - in_txout_count_size) + commitment_txout_size;
+	memmove(&gentxdata[offset_of_txtail_o], &gentxdata[offset_of_txtail_i], length_of_txtail);
+	if (offset_of_txout_data != new_offset_of_preexisting_txout_data) {
+		memmove(&gentxdata[new_offset_of_preexisting_txout_data], &gentxdata[offset_of_txout_data], length_of_preexisting_txout_data);
+	}
+	memcpy(&gentxdata[offset_of_txout_count], insertbuf, out_txout_count_size);
+	const size_t offset_of_commitment_txout_o = new_offset_of_preexisting_txout_data + length_of_preexisting_txout_data;
+	memcpy(&gentxdata[offset_of_commitment_txout_o], commitment_txout, commitment_txout_size);
+	
+	*gentxsize = offset_of_txtail_o + length_of_txtail;
 	
 	return true;
 }
@@ -504,10 +699,13 @@ bool blkmk_sample_data_(blktemplate_t * const tmpl, uint8_t * const cbuf, const 
 	my_htole32(&cbuf[0], tmpl->version);
 	memcpy(&cbuf[4], &tmpl->prevblk, 32);
 	
-	unsigned char cbtxndata[tmpl->cbtxn->datasz + sizeof(dataid)];
+	unsigned char cbtxndata[tmpl->cbtxn->datasz + sizeof(dataid) + max_witness_commitment_insert];
 	size_t cbtxndatasz = 0;
 	if (!_blkmk_extranonce(tmpl, cbtxndata, dataid, &cbtxndatasz))
 		return false;
+	if (!_blkmk_insert_witness_commitment(tmpl, cbtxndata, &cbtxndatasz)) {
+		return false;
+	}
 	if (!build_merkle_root(&cbuf[36], tmpl, cbtxndata, cbtxndatasz))
 		return false;
 	
@@ -571,13 +769,17 @@ bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t 
 	memcpy(&cbuf[4], &tmpl->prevblk, 32);
 	
 	*out_cbtxnsz = tmpl->cbtxn->datasz + extranoncesz;
-	*out_cbtxn = malloc(*out_cbtxnsz);
+	*out_cbtxn = malloc(*out_cbtxnsz + max_witness_commitment_insert);
 	if (!*out_cbtxn)
 		return false;
 	unsigned char dummy[extranoncesz];
 	memset(dummy, 0, extranoncesz);
 	if (!_blkmk_append_cb(tmpl, *out_cbtxn, dummy, extranoncesz, cbextranonceoffset, NULL))
 	{
+		free(*out_cbtxn);
+		return false;
+	}
+	if (!_blkmk_insert_witness_commitment(tmpl, *out_cbtxn, out_cbtxnsz)) {
 		free(*out_cbtxn);
 		return false;
 	}
@@ -621,7 +823,7 @@ static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, con
 	size_t blkbuf_sz = libblkmaker_blkheader_size;
 	if (incl_gentxn) {
 		blkbuf_sz += max_varint_size /* tx count */;
-		blkbuf_sz += tmpl->cbtxn->datasz + extranoncesz;
+		blkbuf_sz += tmpl->cbtxn->datasz + extranoncesz + (max_varint_size - 1) /* possible enlargement to txout count when adding commitment output */ + commitment_txout_size;
 		if (incl_alltxn) {
 			blkbuf_sz += tmpl->txns_datasz;
 		}
@@ -641,6 +843,7 @@ static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, con
 	if (incl_gentxn) {
 		offs += varintEncode(&blk[offs], 1 + tmpl->txncount);
 		
+		size_t cbtxnlen = 0;
 		// Essentially _blkmk_extranonce
 		if (extranoncesz) {
 			if (!_blkmk_append_cb(tmpl, &blk[offs], extranonce, extranoncesz, NULL, NULL)) {
@@ -648,11 +851,15 @@ static char *blkmk_assemble_submission2_internal(blktemplate_t * const tmpl, con
 				return NULL;
 			}
 			
-			offs += tmpl->cbtxn->datasz + extranoncesz;
+			cbtxnlen += tmpl->cbtxn->datasz + extranoncesz;
 		} else {
 			memcpy(&blk[offs], tmpl->cbtxn->data, tmpl->cbtxn->datasz);
-			offs += tmpl->cbtxn->datasz;
+			cbtxnlen += tmpl->cbtxn->datasz;
 		}
+		if (!_blkmk_insert_witness_commitment(tmpl, &blk[offs], &cbtxnlen)) {
+			return NULL;
+		}
+		offs += cbtxnlen;
 		
 		if (incl_alltxn) {
 			for (unsigned long i = 0; i < tmpl->txncount; ++i)
