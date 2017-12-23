@@ -545,6 +545,9 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 		if (extranoncesz < sizeof(unsigned int))
 			extranoncesz = sizeof(unsigned int);
 	}
+	if (tmpl->cbtxn->datasz <= cbScriptSigLen || tmpl->cbtxn->datasz <= cbScriptSigLen + tmpl->cbtxn->data[cbScriptSigLen]) {
+		return -6;
+	}
 	if (extranoncesz > libblkmaker_coinbase_size_limit || tmpl->cbtxn->data[cbScriptSigLen] > libblkmaker_coinbase_size_limit || extranoncesz + tmpl->cbtxn->data[cbScriptSigLen] > libblkmaker_coinbase_size_limit) {
 		return -5;
 	}

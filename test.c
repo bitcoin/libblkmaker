@@ -1238,6 +1238,38 @@ static void test_blkmk_append_coinbase_safe() {
 	assert(blkmk_append_coinbase_safe2(tmpl, "\x05" "testx", 6, 0, true) == 5);
 	
 	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	// Gen tx is cut off immediately after the coinbase.
+	// We don't *really* care that this works since it's not Bitcoin, but we need to make sure it doesn't corrupt memory or crash
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbeef\"},\"mutable\":[\"coinbase/append\"]}", simple_time_rcvd));
+	assert(blkmk_append_coinbase_safe(tmpl, "\x58", 1) >= 1);
+	assert(tmpl->cbtxn);
+	assert(tmpl->cbtxn->datasz == 50);
+	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x08\x01\x04\x04\xde\xad\xbe\xef\x58", tmpl->cbtxn->datasz));
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	// Gen tx is cut off INSIDE the coinbase.
+	// Again, we need to make sure it doesn't corrupt memory or crash
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff07010404deadbe\"},\"mutable\":[\"coinbase/append\"]}", simple_time_rcvd));
+	assert(blkmk_append_coinbase_safe(tmpl, "\x58", 1) <= 0);
+	assert(tmpl->cbtxn);
+	assert(tmpl->cbtxn->datasz == 48);
+	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff\x07\x01\x04\x04\xde\xad\xbe", tmpl->cbtxn->datasz));
+	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	// Gen tx is cut off BEFORE the coinbase
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":3,\"height\":4,\"bits\":\"1d007fff\",\"curtime\":877,\"previousblockhash\":\"00000000a7777777a7777777a7777777a7777777a7777777a7777777a7777777\",\"coinbasetxn\":{\"data\":\"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff\"},\"mutable\":[\"coinbase/append\"]}", simple_time_rcvd));
+	assert(blkmk_append_coinbase_safe(tmpl, "\x58", 1) <= 0);
+	assert(tmpl->cbtxn);
+	assert(tmpl->cbtxn->datasz == 41);
+	assert(!memcmp(tmpl->cbtxn->data, "\x01\0\0\0\x01\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\xff\xff\xff\xff", tmpl->cbtxn->datasz));
+	
+	blktmpl_free(tmpl);
 }
 
 int main() {
