@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-#define BLKMAKER_VERSION (7L)
+#define BLKMAKER_VERSION (8L)
 #define BLKMAKER_MAX_BLOCK_VERSION (0x3fffffff)
 #define BLKMAKER_MAX_PRERULES_BLOCK_VERSION (4)
 
