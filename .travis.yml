@@ -1,0 +1,129 @@
+os: linux
+language: c
+compiler: gcc
+sudo: false
+env:
+  global:
+    - PKG_CONFIG_LIBDIR="$HOME/lib/pkgconfig"
+    - OPTS="--prefix=$HOME"
+matrix:
+  include:
+# Normal build
+    - addons:
+        apt:
+            packages:
+            - build-essential
+            - libjansson-dev
+            - libgcrypt11-dev
+      env: CFLAGS="-Wall" AM_CFLAGS='-Werror'
+# clang
+    - compiler: clang
+      addons:
+        apt:
+            packages:
+            - build-essential
+            - libjansson-dev
+            - libgcrypt11-dev
+      env: CFLAGS="-Wall -fsanitize=undefined -fno-sanitize-recover -fsanitize=address"
+# w/o libgcrypt
+    - addons:
+        apt:
+            packages:
+            - build-essential
+            - libjansson-dev
+# Win32
+    - addons:
+        apt:
+            packages:
+            - gcc-mingw-w64-i686
+            - binutils-mingw-w64-i686
+            - mingw-w64-dev
+            - wine
+      env:
+        - CROSS_TARGET=i686-w64-mingw32
+          EXEEXT=.exe
+          BUILD_LIBS=1
+          WINE_TESTS=1
+          OPTS="$OPTS --disable-static"
+          JANSSON_VERSION=v2.4
+# Win64
+    - addons:
+        apt:
+            packages:
+            - gcc-mingw-w64-x86-64
+            - binutils-mingw-w64-x86-64
+            - mingw-w64-dev
+            - wine
+      env:
+        - CROSS_TARGET=x86_64-w64-mingw32
+          EXEEXT=.exe
+          BUILD_LIBS=1
+          WINE_TESTS=1
+          OPTS="$OPTS --disable-static"
+          JANSSON_VERSION=v2.4
+  exclude:
+    - compiler: gcc
+# TODO: Linux32 (or 64) & OS X
+script:
+  - if [ -n "$CROSS_TARGET" ]; then
+      unset CC;
+      TARGET_OPTS="$TARGET_OPTS --host=$CROSS_TARGET";
+    fi
+  - if [ -n "$BUILD_LIBS" ]; then
+      OPTS="$OPTS --with-gpg-error-prefix=$HOME";
+      git clone git://git.gnupg.org/libgpg-error.git -b libgpg-error-1.13 --depth 1;
+      pushd libgpg-error;
+      ./autogen.sh;
+      ./configure $TARGET_OPTS $OPTS --disable-languages --disable-doc;
+      make;
+      if [ -z "$WINE_TESTS" ]; then
+        LD_LIBRARY_PATH="$HOME/lib" make check;
+      fi;
+      make install;
+      popd;
+      OPTS="$OPTS --with-libgcrypt-prefix=$HOME";
+      git clone git://git.gnupg.org/libgcrypt.git -b libgcrypt-1.5.4 --depth 1;
+      pushd libgcrypt;
+      ./autogen.sh;
+      ./configure $TARGET_OPTS $OPTS --disable-ciphers --disable-pubkey-ciphers --disable-random --disable-asm;
+      make;
+      if [ -z "$WINE_TESTS" ]; then
+        LD_LIBRARY_PATH="$HOME/lib" make check;
+      fi;
+      make install;
+      popd;
+      
+      git clone https://github.com/akheron/jansson.git -b "$JANSSON_VERSION" --depth 1;
+      pushd jansson;
+      autoreconf -f -i;
+      ./configure $TARGET_OPTS $OPTS;
+      make AM_CFLAGS= ;
+      if [ -z "$WINE_TESTS" ]; then
+        LD_LIBRARY_PATH="$HOME/lib" make check;
+      fi;
+      make install;
+      popd;
+    fi
+  - git clone git://github.com/bitcoin/libbase58 -b v0.1.4 --depth 1
+  - pushd libbase58
+  - ./autogen.sh
+  - ./configure $TARGET_OPTS $OPTS
+  - make
+  - if [ -z "$WINE_TESTS" ]; then
+      LD_LIBRARY_PATH="$HOME/lib" make check VERBOSE=1;
+    fi
+  - make install
+  - popd
+  - 
+  - ./autogen.sh
+  - ./configure $TARGET_OPTS $OPTS $CONFIGURE_OPTS || { tail -n 1000 config.log; false; };
+  - make
+  - make example$EXEEXT
+  - make test$EXEEXT
+  - if [ -z "$WINE_TESTS" ]; then
+      LSAN_OPTIONS=1 LD_LIBRARY_PATH="$HOME/lib" make check VERBOSE=1;
+    else
+      ln -s $HOME/bin/*.dll .libs/;
+      LSAN_OPTIONS=1 WINEDLLPATH="$PWD/.libs" wine .libs/test.exe;
+    fi
+  - make install

@@ -1,3 +1,10 @@
+*.gcov
+*.gcda
+*.gcno
+vgcore*
+core*
+*.orig
+*.rej
 *~
 *.so
 *.o
@@ -23,3 +30,9 @@ autom4te.cache
 config.*
 ii
 ar-lib
+compile
+test-driver
+test
+test-suite.log
+test.log
+test.trs

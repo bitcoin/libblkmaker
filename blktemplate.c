@@ -1,16 +1,16 @@
 /*
- * Copyright 2012-2013 Luke Dashjr
+ * Copyright 2012-2016 Luke Dashjr
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the standard MIT license.  See COPYING for more details.
  */
 
-#define _BSD_SOURCE
-
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include <blktemplate.h>
 
@@ -27,7 +27,7 @@ static const char *capnames[] = {
 	
 	"coinbase/append",
 	"coinbase",
-	"generate",
+	"generation",
 	"time/increment",
 	"time/decrement",
 	"transactions/add",
@@ -50,11 +50,33 @@ const char *blktmpl_capabilityname(gbt_capabilities_t caps) {
 	return NULL;
 }
 
-gbt_capabilities_t blktmpl_getcapability(const char *n) {
+uint32_t blktmpl_getcapability(const char *n) {
 	for (unsigned int i = 0; i < GBT_CAPABILITY_COUNT; ++i)
 		if (capnames[i] && !strcasecmp(n, capnames[i]))
-			return 1 << i;
+			return ((uint32_t)1) << i;
+	if (!strcasecmp(n, "time")) {
+		// multi-capability
+		return BMM_TIMEINC | BMM_TIMEDEC;
+	}
+	if (!strcasecmp(n, "transactions"))
+		return BMM_TXNADD;  // Odd one as it's overloaded w/"transactions/add" per spec
 	return 0;
+}
+
+void blktxn_init(struct blktxn_t * const txn) {
+	txn->data = NULL;
+	txn->datasz = 0;
+	txn->hash = NULL;
+	txn->hash_ = NULL;
+	txn->txid = NULL;
+	
+	txn->dependscount = -1;
+	txn->depends = NULL;
+	
+	txn->fee_ = -1;
+	txn->required = false;
+	txn->sigops_ = -1;
+	txn->weight = -1;
 }
 
 blktemplate_t *blktmpl_create() {
@@ -65,17 +87,17 @@ blktemplate_t *blktmpl_create() {
 	
 	tmpl->sigoplimit = USHRT_MAX;
 	tmpl->sizelimit = ULONG_MAX;
+	tmpl->weightlimit = INT64_MAX;
 	
 	tmpl->maxtime = 0xffffffff;
 	tmpl->maxtimeoff = 0x7fff;
 	tmpl->mintimeoff = -0x7fff;
-	tmpl->maxnonce = 0xffffffff;
 	tmpl->expires = 0x7fff;
 	
 	return tmpl;
 }
 
-gbt_capabilities_t blktmpl_addcaps(const blktemplate_t *tmpl) {
+uint32_t blktmpl_addcaps(const blktemplate_t *tmpl) {
 	// TODO: make this a lot more flexible for merging
 	// For now, it's a simple "filled" vs "not filled"
 	if (tmpl->version)
@@ -93,27 +115,52 @@ bool blktmpl_get_submitold(blktemplate_t *tmpl) {
 	return tmpl->submitold;
 }
 
-static
-void blktxn_free(struct blktxn_t *bt) {
+void blktxn_clean(struct blktxn_t * const bt) {
 	free(bt->data);
 	free(bt->hash);
+	free(bt->hash_);
 	free(bt->depends);
+	free(bt->txid);
+}
+
+static
+void blkaux_clean(struct blkaux_t * const aux) {
+	free(aux->auxname);
+	free(aux->data);
 }
 
 void blktmpl_free(blktemplate_t *tmpl) {
 	for (unsigned long i = 0; i < tmpl->txncount; ++i)
-		blktxn_free(&tmpl->txns[i]);
+		blktxn_clean(&tmpl->txns[i]);
 	free(tmpl->txns);
 	if (tmpl->cbtxn)
 	{
-		blktxn_free(tmpl->cbtxn);
+		blktxn_clean(tmpl->cbtxn);
 		free(tmpl->cbtxn);
 	}
-	// TODO: maybe free auxnames[0..n]? auxdata too
-	free(tmpl->auxnames);
-	free(tmpl->auxdata);
+	free(tmpl->_mrklbranch);
+	free(tmpl->_witnessmrklroot);
+	for (unsigned i = 0; i < tmpl->aux_count; ++i)
+		blkaux_clean(&tmpl->auxs[i]);
+	free(tmpl->auxs);
 	free(tmpl->workid);
+	free(tmpl->target);
 	free(tmpl->lp.id);
 	free(tmpl->lp.uri);
+	
+	if (tmpl->rules) {
+		for (char **currule = tmpl->rules; *currule; ++currule) {
+			free(*currule);
+		}
+		free(tmpl->rules);
+	}
+	if (tmpl->vbavailable) {
+		for (struct blktmpl_vbassoc **curvb = tmpl->vbavailable; *curvb; ++curvb) {
+			free((*curvb)->name);
+			free(*curvb);
+		}
+		free(tmpl->vbavailable);
+	}
+	
 	free(tmpl);
 }
