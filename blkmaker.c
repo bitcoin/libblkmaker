@@ -71,13 +71,18 @@ static uint8_t blkmk_varint_encode_size(const uint64_t n) {
 }
 
 uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const script, const size_t scriptsz, bool * const inout_newcb) {
-	if (tmpl->cbtxn && !(*inout_newcb && (tmpl->mutations & BMM_GENERATE)))
+	const bool replace_existing = *inout_newcb;
+	*inout_newcb = false;
+	
+	if (tmpl->cbtxn && !(replace_existing && (tmpl->mutations & BMM_GENERATE)))
 	{
-		*inout_newcb = false;
 		return 0;
 	}
 	
-	*inout_newcb = true;
+	if (!tmpl->cbvalue) {
+		// TODO: Figure it out from the existing cbtxn
+		return 0;
+	}
 	
 	if (scriptsz >= 0xfd)
 		return 0;
@@ -168,6 +173,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	
 	tmpl->mutations |= BMM_CBAPPEND | BMM_CBSET | BMM_GENERATE;
 	
+	*inout_newcb = true;
 	return tmpl->cbvalue;
 }
 
