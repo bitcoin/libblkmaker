@@ -178,7 +178,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 		return 0;
 	}
 	
-	if (!tmpl->cbvalue) {
+	if (!tmpl->has_cbvalue) {
 		// TODO: Figure it out from the existing cbtxn
 		return 0;
 	}
@@ -798,7 +798,9 @@ bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t 
 		free(*out_cbtxn);
 		return false;
 	}
-	memcpy(*out_branches, tmpl->_mrklbranch, branches_bytesz);
+	if (branches_bytesz) {
+		memcpy(*out_branches, tmpl->_mrklbranch, branches_bytesz);
+	}
 	
 	return true;
 }
