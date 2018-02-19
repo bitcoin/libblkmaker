@@ -158,6 +158,8 @@ typedef struct {
 	libblkmaker_hash_t *_witnessmrklroot;
 	int64_t weightlimit;
 	int64_t txns_weight;
+	
+	bool has_cbvalue;
 } blktemplate_t;
 
 extern void blktxn_init(struct blktxn_t *);

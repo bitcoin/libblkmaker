@@ -416,7 +416,14 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 			return "Unrecognized block version, and not allowed to reduce or force it";
 	}
 	
-	GETNUM_O2(cbvalue, coinbasevalue, uint64_t);
+	if ((v = json_object_get(json, "coinbasevalue")) && json_is_number(v)) {
+		const double tmpd = json_number_value(v);
+		const uint64_t tmp = tmpd;
+		if (tmpd == tmp) {
+			tmpl->has_cbvalue = true;
+			tmpl->cbvalue = tmp;
+		}
+	}
 	
 	GETSTR(workid, workid);
 	
@@ -464,7 +471,7 @@ const char *blktmpl_add_jansson(blktemplate_t *tmpl, const json_t *json, time_t 
 		tmpl->cbtxn = calloc(1, sizeof(*tmpl->cbtxn));
 		if ((s = parse_txn(tmpl->cbtxn, v, 0)))
 			return s;
-	} else if (!tmpl->cbvalue) {
+	} else if (!tmpl->has_cbvalue) {
 		return "Missing either coinbasetxn or coinbasevalue";
 	}
 	

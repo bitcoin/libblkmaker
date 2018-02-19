@@ -219,6 +219,7 @@ static void blktmpl_jansson_simple() {
 		assert(tmpl->prevblk[i] == 0x77777777);
 	}
 	assert(!tmpl->prevblk[7]);
+	assert(tmpl->has_cbvalue);
 	assert(tmpl->cbvalue == 512);
 	
 	// Check clear values
@@ -246,6 +247,13 @@ static void blktmpl_jansson_simple() {
 	assert(tmpl->mintime <= tmpl->curtime - 60);
 	assert(tmpl->mintimeoff <= -60);
 	
+	blktmpl_free(tmpl);
+	tmpl = blktmpl_create();
+	
+	assert(!blktmpl_add_jansson_str(tmpl, "{\"version\":2,\"height\":3,\"bits\":\"1d00ffff\",\"curtime\":777,\"previousblockhash\":\"0000000077777777777777777777777777777777777777777777777777777777\",\"coinbasevalue\":0}", simple_time_rcvd));
+	assert(tmpl->has_cbvalue);
+	assert(tmpl->cbvalue == 0);
+
 	blktmpl_free(tmpl);
 	tmpl = blktmpl_create();
 	
@@ -287,6 +295,7 @@ static void blktmpl_jansson_bip22_required() {
 		assert(tmpl->prevblk[i] == 0xa7777777);
 	}
 	assert(!tmpl->prevblk[7]);
+	assert(tmpl->has_cbvalue);
 	assert(tmpl->cbvalue == 640);
 	assert(tmpl->sigoplimit == 100);
 	assert(tmpl->sizelimit == 1000);
@@ -475,6 +484,7 @@ static void test_blktmpl_jansson_floaty() {
 		assert(tmpl->prevblk[i] == 0x77777777);
 	}
 	assert(!tmpl->prevblk[7]);
+	assert(tmpl->has_cbvalue);
 	assert(tmpl->cbvalue == 512);
 	
 	assert(tmpl->txncount == 2);
@@ -534,6 +544,7 @@ static void test_blktmpl_jansson_floaty() {
 		assert(tmpl->prevblk[i] == 0x77777777);
 	}
 	assert(!tmpl->prevblk[7]);
+	assert(!tmpl->has_cbvalue);
 	assert(!tmpl->cbvalue);
 	
 	assert(tmpl->expires == 33);
@@ -1122,6 +1133,7 @@ static void test_blkmk_init_generation() {
 	assert(!blkmk_init_generation(tmpl, NULL, 0));
 	tmpl->height = 4;
 	assert(blkmk_init_generation(tmpl, NULL, 0) == 640);
+	tmpl->has_cbvalue = false;
 	tmpl->cbvalue = 0;
 	newcb = true;
 	// Unknown cbvalue needs to either fail, or figure it out from an existing cbtxn (which we don't support yet)
