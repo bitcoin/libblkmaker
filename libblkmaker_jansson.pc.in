@@ -7,6 +7,7 @@ Name: @PACKAGE_NAME@_jansson
 Description: Bitcoin block maker library.
 Version: @PACKAGE_VERSION@
 URL: @PACKAGE_URL@
-Libs: -L${libdir} -lblkmaker-@LIBBLKMAKER_API_VERSION@ -lblkmaker_jansson-@LIBBLKMAKER_API_VERSION@
+Libs: -L${libdir} -lblkmaker_jansson-@LIBBLKMAKER_API_VERSION@ -lblkmaker-@LIBBLKMAKER_API_VERSION@
 Cflags: -I${includedir}/libblkmaker-@LIBBLKMAKER_API_VERSION@
+Requires: jansson
 Requires.private: libbase58

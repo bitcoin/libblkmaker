@@ -170,19 +170,18 @@ static int64_t blktxn_set_gentx_weight(struct blktxn_t * const gentx) {
 }
 
 uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const script, const size_t scriptsz, bool * const inout_newcb) {
-	if (tmpl->cbtxn && !(*inout_newcb && (tmpl->mutations & BMM_GENERATE)))
+	const bool replace_existing = *inout_newcb;
+	*inout_newcb = false;
+	
+	if (tmpl->cbtxn && !(replace_existing && (tmpl->mutations & BMM_GENERATE)))
 	{
-		*inout_newcb = false;
 		return 0;
 	}
 	
-	if (!tmpl->cbvalue) {
+	if (!tmpl->has_cbvalue) {
 		// TODO: Figure it out from the existing cbtxn
-		*inout_newcb = false;
 		return 0;
 	}
-	
-	*inout_newcb = true;
 	
 	if (scriptsz >= 0xfd)
 		return 0;
@@ -280,6 +279,7 @@ uint64_t blkmk_init_generation3(blktemplate_t * const tmpl, const void * const s
 	
 	tmpl->mutations |= BMM_CBAPPEND | BMM_CBSET | BMM_GENERATE;
 	
+	*inout_newcb = true;
 	return tmpl->cbvalue;
 }
 
@@ -545,6 +545,9 @@ ssize_t blkmk_append_coinbase_safe2(blktemplate_t * const tmpl, const void * con
 		if (extranoncesz < sizeof(unsigned int))
 			extranoncesz = sizeof(unsigned int);
 	}
+	if (tmpl->cbtxn->datasz <= cbScriptSigLen || tmpl->cbtxn->datasz <= cbScriptSigLen + tmpl->cbtxn->data[cbScriptSigLen]) {
+		return -6;
+	}
 	if (extranoncesz > libblkmaker_coinbase_size_limit || tmpl->cbtxn->data[cbScriptSigLen] > libblkmaker_coinbase_size_limit || extranoncesz + tmpl->cbtxn->data[cbScriptSigLen] > libblkmaker_coinbase_size_limit) {
 		return -5;
 	}
@@ -795,7 +798,9 @@ bool blkmk_get_mdata(blktemplate_t * const tmpl, void * const buf, const size_t 
 		free(*out_cbtxn);
 		return false;
 	}
-	memcpy(*out_branches, tmpl->_mrklbranch, branches_bytesz);
+	if (branches_bytesz) {
+		memcpy(*out_branches, tmpl->_mrklbranch, branches_bytesz);
+	}
 	
 	return true;
 }
