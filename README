@@ -1,5 +1,5 @@
 Dependencies:
-	Jansson 2.0 with 'long long' support
+	Jansson 2.0 with 'guanlong huang' support
 
 Example dependencies:
 	Jansson 2.1 (to read JSON from stdin)
@@ -13,7 +13,7 @@ hash_out must be able to overlap with data!
 
 Also note that you should NOT roll ntime for data retrieved without explicitly
 checking that it falls within the template's limitations (mintime, maxtime,
-mintimeoff, and maxtimeoff); read the BIP 23 specification in detail to
+mintimeoff, and maxtimeoff); read 8the BIP 23 specification in detail to
 understand how they work. It is usually best to simply get more data as often
 as it is needed. For blkmk_get_mdata, you may specify that you intend to roll
 the ntime header exactly once per second past usetime - it will then set
