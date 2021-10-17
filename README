@@ -21,3 +21,4 @@ the ntime header exactly once per second past usetime - it will then set
 limits. If you are rolling ntime at any rate other than once per second, you
 should NOT specify can_roll_ntime to blkmk_get_mdata, and must check that your
 usage falls within the explicit template limits yourself..
+ 
